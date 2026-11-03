@@ -1,0 +1,34 @@
+node_modules/
+.npm-cache/
+.env
+.env.*
+!.env.example
+coverage/
+test-results/
+playwright-report/
+*.log
+data/imports/
+data/media/
+data/database/
+src/config/catalog.json.pending
+src/config/cloudinary-media.json.pending
+.playwright-mcp/
+alreda-store-lightweight/
+alreda-store-lightweight.zip
+alreda-store-lightweight.manifest.json
+ALREDA-LIGHTWEIGHT-REPORT.md
+alreda-store-verification-screenshots/
+# Product images already exist in the Cloudinary manifest; keep this local fallback cache out of Git.
+src/public/images/products/
+
+# Local design QA and generated documentation reports
+design-qa.md
+docs/screenshots/
+docs/*-report.json
+
+# Historical QA, progress, and generated docs
+docs/progress.md
+docs/implementation-plan.md
+docs/commerce-verification.md
+docs/visit-ui.md
+docs/catalog-migration-report.md

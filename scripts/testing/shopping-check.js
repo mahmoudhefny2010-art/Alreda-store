@@ -1,0 +1,46 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+const express = require('express');
+const ejs = require('ejs');
+const root = path.resolve(__dirname, '../..');
+const temp = path.join(root, 'test-results/shopping/tmp'); fs.mkdirSync(temp, { recursive: true });
+Object.assign(process.env, { TMP: temp, TEMP: temp, TMPDIR: temp, DATABASE_URL: '', DIRECT_URL: '', GOOGLE_CLIENT_ID: '', GOOGLE_CLIENT_SECRET: '', ONESIGNAL_APP_ID: '', ONESIGNAL_REST_API_KEY: '' });
+const { chromium } = require('playwright');
+const { startOrderDatabase } = require('../../tests/helpers/order-database');
+const { unusedPort } = require('../../tests/helpers/embedded-postgres');
+const { createCustomerAuthRepository } = require('../../src/repositories/customer-auth.repository');
+const { createCartRepository } = require('../../src/repositories/cart.repository');
+const { createOrderRepository } = require('../../src/repositories/order.repository');
+const { createApp } = require('../../src/app');
+const { getProductFromData } = require('../../src/services/product.service');
+const { translate } = require('../../src/config/storefront-i18n');
+let database, browser, server;
+async function main() {
+  database = await startOrderDatabase();
+  const auth = createCustomerAuthRepository(() => database.client), carts = createCartRepository(() => database.client), orders = createOrderRepository(() => database.client);
+  const user = await database.client.users.create({ data: { name: 'Synthetic buyer', email: 'shopping@example.invalid' } });
+  const item = await database.client.products.create({ data: { name: 'Shopping verification item', name_ar: 'منتج اختبار', slug: 'shopping-check', price_egp: 100, stock_quantity: 5 } });
+  const record = { id: item.id, sourceId: 'test', slug: item.slug, titleEn: item.name, name: item.name, titleAr: item.name_ar, stock_quantity: 5, isAvailable: true, gallery: [], collectionIds: [], options: [], variants: [{ id: '1', title: 'Default Title', options: ['Default Title'], priceAmount: '100.00', publicAvailable: true }] };
+  const data = getProductFromData({ bySlug: new Map([[item.slug, record]]), byCategory: new Map(), categories: [], products: new Map(), catalog: { products: [record] } }, item.slug);
+  const port = await unusedPort(), origin = `http://127.0.0.1:${port}`;
+  const app = express(); app.use('/assets', express.static(path.join(root, 'src/public')));
+  app.get('/shopping-test', async (req, res) => {
+    const html = await ejs.renderFile(path.join(root, 'src/views/storefront/product-details.ejs'), { ...data, locale: 'en', checkoutEnabled: true, t: key => translate('en', key) });
+    res.send(`<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/css/main.css"><link rel="stylesheet" href="/assets/css/pages/product-details.css"></head><body class="storefront-body">${html}<dialog data-cart-dialog data-added-text="Added to your bag." data-error-text="Could not save cart." data-empty-text="Empty" data-total-text="Subtotal" data-remove-text="Remove" data-unavailable-text="Unavailable"><p data-cart-status></p><ul data-cart-items></ul><p data-cart-total></p><a data-cart-checkout href="/checkout">Checkout</a></dialog><script src="/assets/js/cart.js"></script></body></html>`);
+  });
+  app.use(createApp({ environment: 'test', whatsappSettings: {}, mediaSettings: {}, authSettings: {}, authRepository: auth, cartRepository: carts, orders: { repository: orders, policy: { enabled: true, origin, shippingRates: { Cairo: 25 } } } }));
+  server = await new Promise(resolve => { const socket = app.listen(port, '127.0.0.1', () => resolve(socket)); });
+  browser = await chromium.launch({ channel: 'chrome', headless: true }); const context = await browser.newContext();
+  const session = await auth.createSession(user.id); await context.addCookies([{ name: 'alreda_session', value: session.token, url: origin, httpOnly: true, sameSite: 'Lax' }]);
+  const page = await context.newPage(); const errors = []; page.on('pageerror', error => errors.push(error.message)); await page.goto(`${origin}/shopping-test`);
+  assert.equal(await page.locator('.detail-add').isEnabled(), true); assert(!(await page.locator('body').innerText()).includes('Shopping is not connected yet.'));
+  await page.route('**/api/cart/items', route => route.abort()); await page.locator('[data-buy-now]').click(); await page.getByText('Could not save cart.', { exact: true }).waitFor();
+  assert(page.url().endsWith('/shopping-test')); assert.equal(await database.client.orders.count(), 0); await page.unroute('**/api/cart/items');
+  await page.locator('#product-quantity').fill('2'); await page.locator('.detail-add').click(); await page.getByText('Added to your bag.', { exact: true }).first().waitFor();
+  assert.equal((await carts.get({ userId: user.id })).cart_items[0].quantity, 2);
+  await page.locator('#product-quantity').fill('1'); await page.locator('[data-buy-now]').click(); await page.waitForURL(`${origin}/checkout`);
+  assert.equal(await page.locator(`[data-product-id="${item.id}"]`).inputValue(), '3'); assert.equal(await database.client.orders.count(), 0); assert.deepEqual(errors, []);
+  console.info(JSON.stringify({ syntheticDataOnly: true, persistedCart: true, buyNowAfterSaveOnly: true, failedSaveDoesNotNavigate: true, checkoutPrefilled: true, ordersCreated: 0, browserErrors: 0 }));
+}
+main().catch(error => { console.error(String(error.message).slice(0, 600)); process.exitCode = 1; }).finally(async () => { await browser?.close(); if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); } await database?.stop(); process.exit(process.exitCode || 0); });

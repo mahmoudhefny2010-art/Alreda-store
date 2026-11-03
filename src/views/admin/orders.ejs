@@ -1,0 +1,22 @@
+<link rel="stylesheet" href="/assets/css/pages/orders-admin.css?v=order-cards-20261103-1">
+<section class="order-admin order-detail-page">
+  <a class="text-link orders-back" href="/admin/orders">← <%= copy.back %></a>
+  <% for (const order of orders) { %>
+    <header class="order-detail-heading"><div><h1><bdi><%= order.order_number %></bdi></h1><time datetime="<%= order.created_at.toISOString() %>"><%= orderDate(order.created_at) %></time></div><div class="order-detail-badges"><span class="order-status-badge status-<%= order.status.toLowerCase() %>"><%= dashboardText(`status_${order.status}`) %></span><span class="order-payment-badge <%= order.payment_status === 'PAID' ? 'is-paid' : '' %>"><%= dashboardText(`status_${order.payment_status}`) %></span></div></header>
+    <div class="order-detail-layout"><div class="order-detail-main">
+      <section class="order-detail-panel"><h2><%= copy.products %></h2><div class="admin-order-items"><% for (const item of order.order_items) { %><div class="admin-order-item"><div><strong><%= locale === 'ar' ? item.product_name_ar || item.product_name : item.product_name %></strong><small><%= number(item.quantity) %> × <%= orderMoney(item.unit_price_egp) %></small></div><span><%= orderMoney(item.line_total_egp) %></span></div><% } %></div>
+        <dl class="admin-order-totals"><% for (const [key, amount] of [['subtotal',order.subtotal_egp],['shipping',order.delivery_fee_egp],['total',order.total_egp]]) { %><div class="<%= key === 'total' ? 'admin-order-total' : '' %>"><dt><%= dashboardText(key) %></dt><dd><%= orderMoney(amount) %></dd></div><% } %></dl>
+      </section>
+      <% if (order.notes) { %><section class="order-detail-panel"><h2><%= copy.notes %></h2><p><%= order.notes %></p></section><% } %>
+      <%- include('order-payment-review', { order }) %>
+    </div><aside class="order-detail-sidebar">
+      <section class="order-detail-panel"><h2><%= copy.customer %></h2><strong class="order-detail-customer"><%= order.customer_name %></strong><a class="order-detail-contact" href="tel:<%= order.customer_phone.replace(/[^+0-9]/g, '') %>"><bdi><%= order.customer_phone %></bdi></a>
+        <% if (order.shipping) { %><p class="order-detail-email"><%= order.shipping.email %></p><div class="order-detail-address"><span><%= dashboardText('address') %></span><p><%= order.shipping.address %><br><%= order.shipping.city %>, <%= order.shipping.country %><% if (order.shipping.postalCode) { %> · <%= order.shipping.postalCode %><% } %></p></div><% } else { %><p><%= order.address_snapshot %></p><% } %>
+        <% if (order.mapUrl) { %><a class="button button-secondary order-map-button" href="<%= order.mapUrl %>" target="_blank" rel="noopener noreferrer"><%= locale === 'ar' ? 'فتح الموقع على الخريطة' : 'Open location in Maps' %> ↗</a><% } %>
+      </section>
+      <section class="order-detail-panel order-action-panel"><h2><%= copy.actions %></h2><p><%= dashboardText(`method_${order.payment_method}`) %></p>
+        <% if (order.nextStatuses.length) { %><form action="/admin/orders/<%= order.id %>/status" method="post"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><label><%= dashboardText('updateOrder') %><select name="status" required><% for (const state of order.nextStatuses) { %><option value="<%= state %>"><%= dashboardText(`status_${state}`) %></option><% } %></select></label><button class="button" type="submit"><%= dashboardText('saveStatus') %></button></form><% } %>
+      </section>
+    </aside></div>
+  <% } %>
+</section>

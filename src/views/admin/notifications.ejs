@@ -1,0 +1,22 @@
+<section class="order-admin notification-admin">
+  <h1><%= dashboardText('notificationTitle') %></h1>
+  <p><%= dashboardText('notificationIntro') %></p>
+  <% if (typeof templates !== 'undefined') { %><%- include('push-controls') %><% } %>
+  <form class="workspace-panel notification-settings" action="/admin/notifications/settings" method="post">
+    <h2><%= dashboardText('reminderTitle') %></h2>
+    <label><%= dashboardText('reminderWait') %><input type="number" name="abandonedCartMinutes" min="15" max="10080" step="1" value="<%= reminderMinutes %>" required></label>
+    <p><%= dashboardText('reminderHint') %></p>
+    <button class="button" type="submit"><%= dashboardText('reminderSave') %></button>
+  </form>
+  <% if (!attempts.length) { %><p class="notification-empty"><%= dashboardText('noNotificationAttempts') %></p><% } %>
+  <% for (const attempt of attempts) { %>
+    <article class="workspace-panel notification-attempt">
+      <h2><%= attempt.outbox.event_type %> · <%= dashboardText(`status_${attempt.status}`) %></h2>
+      <% if (attempt.outbox.payload?.message) { const message = attempt.outbox.payload.message; %><p><strong><%= locale === 'ar' ? message.titleAr : message.titleEn %></strong></p><p><%= locale === 'ar' ? message.bodyAr : message.bodyEn %></p><% } %>
+      <p><%= dashboardText('customerId') %>: <%= attempt.outbox.user_id %> · <%= dashboardText('attemptedAt') %>: <time datetime="<%= attempt.attempted_at.toISOString() %>"><%= attempt.attempted_at.toISOString() %></time></p>
+      <% if (attempt.outbox.order_id) { %><p><%= dashboardText('orderId') %>: <%= attempt.outbox.order_id %></p><% } %>
+      <% if (attempt.provider_message_id) { %><p><%= dashboardText('providerMessageId') %>: <%= attempt.provider_message_id %></p><% } %>
+      <% if (attempt.error_code) { %><p><%= dashboardText('resultCode') %>: <%= attempt.error_code %></p><% } %>
+    </article>
+  <% } %>
+</section>

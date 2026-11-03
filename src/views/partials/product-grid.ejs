@@ -1,0 +1,2 @@
+<% if (products.length) { %><div class="product-grid"><% products.forEach(product => { %><%- include('product-card', { product }) %><% }); %></div>
+<% } else { %><p class="empty-products"><%= t('noProducts') %></p><% } %>

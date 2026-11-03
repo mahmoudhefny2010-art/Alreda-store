@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600" role="img" aria-labelledby="title">
+  <title id="title">Product image not uploaded</title>
+  <rect width="800" height="600" fill="#f3f3f3"/>
+  <path d="M339 214h122l52 58v128H287V272l52-58Zm0 0v58h174" fill="none" stroke="#b7b7b7" stroke-width="10" stroke-linejoin="round"/>
+  <text x="400" y="464" text-anchor="middle" fill="#666" font-family="Arial,sans-serif" font-size="24">Image not uploaded</text>
+</svg>

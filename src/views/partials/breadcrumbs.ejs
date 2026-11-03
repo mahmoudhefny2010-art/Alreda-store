@@ -1,0 +1,5 @@
+<nav class="breadcrumbs" aria-label="<%= t('breadcrumbs') %>">
+  <ol><% items.forEach((item, index) => { %>
+    <li class="<%= index === items.length - 1 ? 'breadcrumb-current' : '' %>" <%= index === items.length - 1 ? 'aria-current=page' : '' %>><% if (item.href) { %><a href="<%= item.href %>" title="<%= item.label %>"><bdi><%= item.label %></bdi></a><% } else { %><bdi><%= item.label %></bdi><% } %></li>
+  <% }); %></ol>
+</nav>

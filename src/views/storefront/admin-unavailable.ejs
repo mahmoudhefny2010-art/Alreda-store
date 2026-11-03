@@ -1,0 +1,14 @@
+<section class="section container" aria-labelledby="admin-access-title">
+  <h1 id="admin-access-title"><%= t(adminAccessTitle) %></h1>
+  <p><%= t(adminAccessBody) %></p>
+  <% if (code === 'ORDERS_UNAVAILABLE') { %>
+    <p role="status"><%= locale === 'ar' ? 'رمز النتيجة:' : 'Result code:' %> <code><%= typeof diagnosticCode === 'string' ? diagnosticCode : code %></code></p>
+    <a class="button" href="/admin/delivery"><%= locale === 'ar' ? 'إعادة المحاولة' : 'Try again' %></a>
+  <% } %>
+  <% if (code === 'AUTHENTICATION_REQUIRED') { %>
+    <% if (googleAuthEnabled) { %>
+      <a class="button" href="/auth/google?returnTo=%2Fadmin"><%= t('adminSignIn') %></a>
+    <% } else { %><p><%= t('adminAuthUnavailable') %></p><% } %>
+  <% } %>
+  <a class="button" href="/"><%= t('continueBrowsing') %></a>
+</section>

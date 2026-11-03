@@ -1,0 +1,8 @@
+<% if (typeof whatsapp !== 'undefined' && whatsapp) { %>
+<div class="whatsapp-contact" data-whatsapp-contact>
+  <div class="whatsapp-contact__label-slot" aria-hidden="true"><span class="whatsapp-contact__label"><%= t('whatsapp') %></span></div>
+  <a class="whatsapp-contact__link" href="<%= whatsapp.href %>" target="_blank" rel="noopener noreferrer" aria-label="<%= t('whatsappLabel') %>">
+    <img src="<%= typeof mediaAsset === 'function' ? mediaAsset('branding:whatsapp', '/assets/images/whatsapp-transparent.png', 'thumbnail') : '/assets/images/whatsapp-transparent.png' %>" width="28" height="28" alt="" class="whatsapp-contact__icon">
+  </a>
+</div>
+<% } %>

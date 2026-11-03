@@ -1,0 +1,28 @@
+<div class="page-loader" role="status" aria-live="polite">
+  <img src="/assets/images/alreda-delight-logo.jpg" alt="" width="88" height="88">
+  <span class="page-loader-spinner" aria-hidden="true"></span><p><%= t('pageLoading') %></p>
+  <button type="button" data-loader-dismiss><%= t('continueBrowsing') %></button>
+</div>
+<dialog id="welcome-dialog" class="welcome-dialog" aria-labelledby="welcome-title" data-welcome-dialog
+  data-title="<%= t('welcomeTitle') %>" data-help-title="<%= t('welcomeHelpTitle') %>"
+  data-installed-label="<%= t('installCompleteShort') %>" data-enabled-label="<%= t('pushEnabledShort') %>"
+  data-install-requested="<%= t('installRequested') %>" data-install-complete="<%= t('installComplete') %>" data-install-dismissed="<%= t('installDismissed') %>" data-install-failed="<%= t('installFailed') %>"
+  data-push-loading="<%= t('pushLoading') %>" data-push-blocked="<%= t('pushBlocked') %>" data-push-unsupported="<%= t('pushUnsupported') %>" data-push-failed="<%= t('pushFailed') %>" data-push-pending="<%= t('pushPending') %>" data-push-enabled="<%= t('pushEnabled') %>">
+  <div class="welcome-heading"><h2 id="welcome-title" tabindex="-1"><%= t('welcomeTitle') %></h2><button class="icon-button" type="button" data-welcome-close aria-label="<%= t('close') %>">×</button></div>
+  <div data-welcome-intro>
+    <section class="welcome-option"><h3><%= t('welcomeNotifications') %></h3><p><%= t('welcomeNotificationsBody') %></p>
+      <% if (typeof customer !== 'undefined' && customer && typeof onesignalAppId !== 'undefined' && onesignalAppId) { %><button class="button" type="button" data-welcome-notifications><%= t('welcomeEnable') %></button>
+      <% } else if (typeof googleAuthEnabled !== 'undefined' && googleAuthEnabled && typeof onesignalAppId !== 'undefined' && onesignalAppId) { %><a class="button" data-welcome-sign-in href="/auth/google?returnTo=<%= encodeURIComponent(returnTo) %>"><%= t('welcomeSignIn') %></a><p class="welcome-hint"><%= t('welcomeSignInHint') %></p>
+      <% } else { %><p class="welcome-hint"><%= t('welcomeUnavailable') %></p><% } %>
+    </section>
+    <section class="welcome-option"><h3><%= t('welcomeInstall') %></h3><p><%= t('welcomeInstallBody') %></p><button class="button welcome-secondary" type="button" data-welcome-install><%= t('installStore') %></button><button class="welcome-text-button" type="button" data-install-help><%= t('installationHelp') %></button></section>
+    <button class="welcome-later" type="button" data-welcome-later><%= t('notNow') %></button>
+  </div>
+  <div data-welcome-help hidden>
+    <p class="welcome-intro"><%= t('welcomeHelpIntro') %></p>
+    <section class="welcome-instructions"><h3><%= t('notificationsLabel') %></h3><p><%= t('notificationHelp') %></p></section>
+    <section class="welcome-instructions"><h3><%= t('installationHelp') %></h3><p data-install-ios hidden><%= t('installIosHelp') %></p><p data-install-browser><%= t('installBrowserHelp') %></p></section>
+    <div class="welcome-help-actions"><button class="button" type="button" data-welcome-done><%= t('welcomeDone') %></button><button class="welcome-text-button" type="button" data-welcome-setup><%= t('welcomeSetUp') %></button></div>
+  </div>
+  <p class="welcome-status" role="status" aria-live="polite" data-welcome-status></p>
+</dialog>

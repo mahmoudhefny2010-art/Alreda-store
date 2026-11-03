@@ -1,0 +1,1 @@
+<p class="product-price"><% if (price) { %><span><%= price.currentFormatted %></span><% if (price.compareAtFormatted) { %> <del><%= price.compareAtFormatted %></del><% } %><% } else { %><%= t('priceUnavailable') %><% } %></p>

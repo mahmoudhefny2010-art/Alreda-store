@@ -1,0 +1,54 @@
+/* global document, innerWidth, getComputedStyle */
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+const express = require('express');
+const ejs = require('ejs');
+const root = path.resolve(__dirname, '../..');
+const output = path.join(root, 'test-results/card-design'); fs.mkdirSync(output, { recursive: true });
+const tmp = path.join(output, 'tmp'); fs.mkdirSync(tmp, { recursive: true }); Object.assign(process.env, { TMP: tmp, TEMP: tmp, TMPDIR: tmp });
+const { chromium } = require('playwright');
+const { productCard } = require('../../src/utils/productPreview');
+const { translate } = require('../../src/config/storefront-i18n');
+let server, browser;
+async function main() {
+  const catalog = require('../../src/config/catalog.json');
+  const set = catalog.products.find(product => product.name === 'Bathroom Set 11500');
+  const pieces = catalog.products.find(product => product.options.some(option => option.name === 'Type') && product.gallery.length > 2);
+  const sized = catalog.products.find(product => product.options.some(option => /diam/i.test(option.name)) && product.variants.some(variant => variant.options.includes('40cm')));
+  const app = express(); app.use('/assets', express.static(path.join(root, 'src/public')));
+  app.get('/', async (req, res) => {
+    const locale = req.query.lang === 'ar' ? 'ar' : 'en';
+    const html = await ejs.renderFile(path.join(root, 'src/views/partials/product-grid.ejs'), { products: [set, pieces, sized].map(record => productCard(record, '', locale)), t: key => translate(locale, key) });
+    res.send(`<!doctype html><html lang="${locale}" dir="${locale === 'ar' ? 'rtl' : 'ltr'}"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/css/main.css"></head><body class="storefront-body"><main class="container collection-products" style="padding-block:30px">${html}</main><script src="/assets/js/product-card.js"></script></body></html>`);
+  });
+  server = await new Promise(resolve => { const socket = app.listen(0, '127.0.0.1', () => resolve(socket)); }); const origin = `http://127.0.0.1:${server.address().port}`;
+  browser = await chromium.launch({ channel: 'chrome', headless: true });
+  const context = await browser.newContext({ viewport: { width: 1366, height: 1000 } }); const page = await context.newPage(); const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto(origin); const card = page.locator('.product-card').first(), image = card.locator('.category-image');
+  await image.evaluate(image => image.decode());
+  assert.equal(await image.getAttribute('src'), productCard(set, '').preview.gallery[0]);
+  assert.equal(await page.getByRole('combobox').count(), 0);
+  const sizeCard = page.locator('.product-card').nth(2), sizeGallery = productCard(sized, '').preview.gallery;
+  assert.equal(await sizeCard.locator('.category-image').getAttribute('src'), sizeGallery[0]);
+  await sizeCard.locator('.product-card-link').hover();
+  await page.waitForFunction(src => document.querySelectorAll('.product-card')[2].querySelector('.category-image').getAttribute('src') === src, sizeGallery[1]);
+  await page.mouse.move(1300, 950);
+  await page.waitForFunction(src => document.querySelectorAll('.product-card')[2].querySelector('.category-image').getAttribute('src') === src, sizeGallery[0]);
+  const expectedGold = productCard(set, '').preview.variants.find(variant => variant.options[0] === 'Gold').image;
+  await card.getByRole('button', { name: 'Color: Gold', exact: true }).click(); await page.waitForFunction(src => document.querySelector('.category-image').getAttribute('src') === src, expectedGold);
+  assert((await card.locator('.card-choose-options').getAttribute('href')).includes('variant=47689676882098'));
+  assert.equal(await card.locator('.card-color-gold').evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(197, 163, 92)');
+  assert.equal(await card.locator('.card-option').count(), 4);
+  await page.mouse.move(1300, 950); await page.screenshot({ path: path.join(output, 'desktop.png'), fullPage: true });
+  await card.locator('.product-card-link').hover();
+  await page.waitForFunction(src => document.querySelector('.category-image').getAttribute('src') === src, productCard(set, '').preview.gallery[1]);
+  await page.mouse.move(1300, 950); await page.waitForFunction(src => document.querySelector('.category-image').getAttribute('src') === src, expectedGold);
+  await card.getByRole('button', { name: 'Color: Silver', exact: true }).focus(); await page.keyboard.press('Enter'); assert.equal(await card.getByRole('button', { name: 'Color: Silver', exact: true }).getAttribute('aria-pressed'), 'true');
+  const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' }); const phone = await mobile.newPage(); await phone.goto(`${origin}/?lang=ar`);
+  await phone.locator('.product-card').first().getByRole('button', { name: 'اللون: ذهبي', exact: true }).tap(); await phone.waitForFunction(src => document.querySelector('.category-image').getAttribute('src') === src, expectedGold);
+  assert.equal(await phone.getByRole('combobox').count(), 0);
+  assert(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth)); await phone.screenshot({ path: path.join(output, 'mobile-ar.png'), fullPage: true });
+  assert.deepEqual(errors, []); console.log(JSON.stringify({ firstGalleryImageInitially: true, exactSecondImageOnHover: true, onlyColorsOnCards: true, actualBathroomSetColorImage: true, hoverRestore: true, keyboard: true, arabicMobile: true, browserErrors: 0 }));
+}
+main().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(async () => { await browser?.close(); if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); } });

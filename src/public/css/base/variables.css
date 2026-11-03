@@ -1,0 +1,20 @@
+﻿:root {
+  --color-ink:#263f38;
+  --color-muted:#64746c;
+  --color-paper:#fbfaf7;
+  --color-white:#fff;
+  --color-line:#dfe4dd;
+  --color-soft:#eff2eb;
+  --color-accent:#a78b60;
+  --font-body:Arial,sans-serif;
+  --font-display:Georgia,'Times New Roman',serif;
+  --space-1:.5rem;
+  --space-2:1rem;
+  --space-3:1.5rem;
+  --space-4:2rem;
+  --space-5:3rem;
+  --space-6:5rem;
+  --radius:6px;
+  --shadow:0 8px 28px #263f3808;
+  --container:1200px
+}

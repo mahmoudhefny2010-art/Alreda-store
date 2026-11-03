@@ -1,0 +1,38 @@
+<article class="product-card" <% if (typeof product.id === 'string') { %>data-product-id="<%= product.id %>"<% } %> <% if (product.preview) { %>data-card-preview="<%= JSON.stringify(product.preview) %>"<% } %>>
+  <% if (product.href) { %><a class="product-card-link" href="<%= product.href %>"><% } else { %><div class="product-card-link"><% } %>
+    <% if (product.image) { %><picture class="card-picture <%= product.preview?.isSet ? 'card-picture--set' : '' %>"><% if (product.preview?.mobileImage) { %><source media="(hover: none), (pointer: coarse)" srcset="<%= product.preview.mobileImage %>"><% } %><img class="category-image" src="<%= product.image %>" alt="<%= product.name %>" width="640" height="640" loading="lazy"></picture>
+    <% } else { %><div class="category-image image-placeholder"><span><%= t('productImage') %></span><small><%= t('temporaryPlaceholder') %></small></div><% } %>
+  <% if (product.href) { %></a><% } else { %></div><% } %>
+  <h3><% if (product.href) { %><a class="product-card-title" href="<%= product.href %>"><%= product.name %></a><% } else { %><%= product.name %><% } %></h3>
+  <%- include('product-price', { price: product.price }) %>
+  <% if (product.preview?.catalogColors?.length) { %>
+    <div class="card-catalog-colors" role="group" aria-label="<%= t('productColor') %>">
+      <span class="card-option-name"><%= t('productColor') %></span>
+      <span class="card-catalog-colors-list"><% for (const color of product.preview.catalogColors) { %><span class="card-color card-color-custom" style="--swatch-color:<%= color.hex %>" role="img" aria-label="<%= color.label %>" title="<%= color.label %>"></span><% } %></span>
+    </div>
+  <% } %>
+  <% if (product.preview && product.preview.groups.some(group => group.isColor)) { %>
+    <div class="card-options">
+    <% product.preview.groups.forEach(group => { %>
+      <% if (group.isColor) { %>
+      <div class="card-option-group" role="group" aria-label="<%= group.name %>">
+        <div class="card-option-values">
+        <% group.values.forEach(option => { %>
+          <button type="button" class="card-option <%= option.color || option.thumbnail ? 'card-option-swatch' : '' %>" data-option-index="<%= group.index %>" data-option-value="<%= option.value %>" aria-label="<%= group.name %>: <%= option.label %>" title="<%= option.label %>" aria-pressed="<%= product.preview.variants[0]?.options[group.index] === option.value ? 'true' : 'false' %>">
+            <% if (option.color) { %><span class="card-color card-color-<%= option.swatch %>" aria-hidden="true"></span><% } else if (option.thumbnail) { %><img src="<%= option.thumbnail %>" alt="" width="24" height="24" loading="lazy"><% } else { %><span><%= option.label %></span><% } %>
+          </button>
+        <% }); %>
+        </div>
+      </div>
+      <% } %>
+    <% }); %>
+    </div>
+  <% } %>
+  <% if (product.preview && product.preview.groups.length) { %>
+    <p class="availability" data-card-stock <%= product.outOfStock || product.preview.variants[0]?.outOfStock ? '' : 'hidden' %>><%= product.outOfStock ? product.availability.label : product.preview.variants[0]?.availability %></p>
+    <a class="button card-choose-options" href="<%= product.href %>"><%= product.preview.chooseLabel %></a>
+  <% } else { %>
+    <%- include('availability', { availability: product.availability }) %>
+    <%- include('add-to-cart', { product }) %>
+  <% } %>
+</article>

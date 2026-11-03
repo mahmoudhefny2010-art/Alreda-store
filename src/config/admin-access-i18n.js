@@ -1,0 +1,26 @@
+module.exports = {
+  en: {
+    accountAdminRole: 'Store administrator',
+    accountOpenAdmin: 'Open Admin Dashboard',
+    adminSignInTitle: 'Sign in to administration',
+    adminSignInBody: 'Sign in with the Google account that has been granted administrator access.',
+    adminSignIn: 'Sign in with Google',
+    adminAuthUnavailable: 'Google sign-in is not configured. Ask the store owner to complete authentication setup.',
+    adminDeniedTitle: 'Administrator access required',
+    adminDeniedBody: 'This account does not have administrator access. Ask the store owner to grant access to your Google account, or use the account menu to switch accounts.',
+    adminUnavailableTitle: 'Administration temporarily unavailable',
+    adminUnavailableBody: 'The administration request could not be completed. Please try again. Store checkout settings do not control administrator access.',
+  },
+  ar: {
+    accountAdminRole: 'مدير المتجر',
+    accountOpenAdmin: 'فتح لوحة الإدارة',
+    adminSignInTitle: 'تسجيل الدخول إلى لوحة الإدارة',
+    adminSignInBody: 'سجّل الدخول بحساب جوجل الذي مُنح صلاحية الإدارة.',
+    adminSignIn: 'تسجيل الدخول باستخدام جوجل',
+    adminAuthUnavailable: 'تسجيل الدخول بجوجل غير مُعدّ حاليًا. اطلب من صاحب المتجر إكمال إعداد تسجيل الدخول.',
+    adminDeniedTitle: 'صلاحية الإدارة مطلوبة',
+    adminDeniedBody: 'هذا الحساب لا يملك صلاحية الإدارة. اطلب من صاحب المتجر منح الصلاحية لحساب جوجل الخاص بك، أو استخدم قائمة الحساب للتبديل إلى حساب آخر.',
+    adminUnavailableTitle: 'لوحة الإدارة غير متاحة مؤقتًا',
+    adminUnavailableBody: 'تعذّر إكمال طلب الإدارة. حاول مرة أخرى. إعدادات إتمام الشراء لا تتحكم في صلاحية الإدارة.',
+  },
+};

@@ -1,0 +1,5 @@
+<section class="section container">
+  <h1><%= missingOrder ? t('notFoundTitle') : locale === 'ar' ? 'طلباتي' : 'My orders' %></h1>
+  <p><%= signInRequired ? (locale === 'ar' ? 'سجّل الدخول لعرض طلباتك.' : 'Sign in to view your orders.') : missingOrder ? t('notFoundMessage') : t('tryAgainMessage') %></p>
+  <a class="button" href="<%= signInRequired ? '/' : '/account/orders' %>"><%= signInRequired ? t('returnHome') : t('tryAgain') %></a>
+</section>

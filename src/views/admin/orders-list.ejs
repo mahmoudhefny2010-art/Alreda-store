@@ -1,0 +1,21 @@
+<link rel="stylesheet" href="/assets/css/pages/orders-admin.css?v=order-cards-20261103-1">
+<section class="order-admin orders-overview">
+  <header class="orders-page-heading"><h1><%= dashboardText('ordersTitle') %></h1><p><%= number(orders.length) %> <%= copy.results %></p></header>
+  <form class="orders-filters" method="get" action="/admin/orders">
+    <label class="orders-search"><%= copy.search %><input type="search" name="q" value="<%= filters.q %>" maxlength="100" placeholder="<%= copy.placeholder %>"></label>
+    <% for (const [name, label, all, values, prefix] of [['status',dashboardText('status'),copy.allStatuses,['PLACED','CONFIRMED','PROCESSING','SHIPPED','DELIVERED','CANCELLED'],'status'],['payment',dashboardText('payment'),copy.allPayments,['UNPAID','PAID','UNCONFIRMED'],'status'],['method',locale === 'ar' ? 'طريقة الدفع' : 'Payment method',copy.allMethods,['CASH_ON_DELIVERY','INSTAPAY','ONLINE','INSTAPAY_ON_DELIVERY','PAY_AT_CASHIER'],'method']]) { %><label><%= label %><select name="<%= name %>"><option value=""><%= all %></option><% for (const value of values) { %><option value="<%= value %>" <%= filters[name] === value ? 'selected' : '' %>><%= dashboardText(`${prefix}_${value}`) %></option><% } %></select></label><% } %>
+    <div class="orders-filter-actions"><button class="button" type="submit"><%= copy.apply %></button><a class="text-link" href="/admin/orders"><%= copy.clear %></a></div>
+  </form>
+  <% if (!orders.length) { %><div class="orders-empty"><span aria-hidden="true">▤</span><p><%= copy.empty %></p><a href="/admin/orders" class="text-link"><%= copy.clear %></a></div><% } %>
+  <div class="admin-order-grid"><% for (const order of orders) { %>
+    <article class="admin-order-card">
+      <div class="admin-order-card-top"><span class="order-status-badge status-<%= order.status.toLowerCase() %>"><%= dashboardText(`status_${order.status}`) %></span><time datetime="<%= order.created_at.toISOString() %>"><%= orderDate(order.created_at) %></time></div>
+      <h2><a href="/admin/orders/<%= order.id %>"><bdi><%= order.order_number %></bdi></a></h2>
+      <p class="admin-order-customer"><%= order.customer_name %></p><p class="admin-order-phone"><bdi><%= order.customer_phone %></bdi><% if (order.shipping?.city) { %><span> · <%= order.shipping.city %></span><% } %></p>
+      <div class="admin-order-meta"><span><%= dashboardText(`method_${order.payment_method}`) %></span><span class="order-payment-badge <%= order.payment_status === 'PAID' ? 'is-paid' : '' %>"><%= dashboardText(`status_${order.payment_status}`) %></span></div>
+      <% if (order.payment_method === 'INSTAPAY' && order.payment_status !== 'PAID' && order.status !== 'CANCELLED') { %><p class="order-review-needed"><%= copy.review %></p><% } %>
+      <div class="admin-order-card-bottom"><div><strong><%= orderMoney(order.total_egp) %></strong><small><%= number(order.order_items.reduce((total,item) => total + item.quantity, 0)) %> <%= copy.items %></small></div><a class="button" href="/admin/orders/<%= order.id %>"><%= copy.view %> <span aria-hidden="true">↗</span></a></div>
+    </article>
+  <% } %></div>
+  <% if (nextUrl) { %><a class="button button-secondary orders-next" href="<%= nextUrl %>"><%= copy.next %> →</a><% } %>
+</section>

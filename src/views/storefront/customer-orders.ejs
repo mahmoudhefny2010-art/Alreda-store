@@ -1,0 +1,26 @@
+<link rel="stylesheet" href="/assets/css/pages/checkout.css?v=order-summary-20261103-3">
+<link rel="stylesheet" href="/assets/css/pages/customer-orders.css?v=20261103-1">
+<section class="checkout-page container order-history <%= order ? 'checkout-complete' : '' %>">
+  <header class="checkout-heading"><a class="text-link" href="<%= order ? '/account/orders' : '/products' %>">← <%= order ? copy.back : t('continueBrowsing') %></a><h1><%= copy.title %></h1></header>
+  <% if (order) { %>
+    <p id="checkout-status" class="<%= order.status === 'CANCELLED' ? 'receipt-cancelled' : order.payment_method === 'INSTAPAY' && order.payment_status !== 'PAID' ? 'receipt-pending' : '' %>"><%= orderStatus(order) %></p>
+    <div id="checkout-result">
+      <dl class="order-receipt-details"><div class="order-receipt-reference"><dt><%= copy.reference %></dt><dd><%= order.order_number %></dd><small class="order-history-date"><%= orderDate(order.created_at) %></small></div><div class="order-receipt-payment"><dt><%= copy.payment %></dt><dd><%= orderPayment(order) %></dd></div></dl>
+      <h2 class="order-receipt-title"><%= copy.items %></h2>
+      <ul class="order-receipt-items"><% for (const item of order.order_items) { %><li class="order-receipt-item"><div class="order-receipt-description"><span class="order-receipt-name"><%= locale === 'ar' ? item.product_name_ar || item.product_name : item.product_name %></span><small><%= number(item.quantity) %> × <%= orderMoney(item.unit_price_egp) %></small></div><strong class="order-receipt-price"><%= orderMoney(item.line_total_egp) %></strong></li><% } %></ul>
+      <dl class="order-receipt-totals"><div><dt><%= copy.subtotal %></dt><dd><%= orderMoney(order.subtotal_egp) %></dd></div><div><dt><%= copy.shipping %></dt><dd><%= orderMoney(order.delivery_fee_egp) %></dd></div><div class="order-receipt-total"><dt><%= copy.total %></dt><dd><%= orderMoney(order.total_egp) %></dd></div></dl>
+    </div>
+  <% } else { %>
+    <% if (!history.current.length && !history.past.length) { %><div class="order-history-empty"><span aria-hidden="true">▢</span><p><%= copy.empty %></p><a class="button" href="/products"><%= t('continueBrowsing') %></a></div><% } %>
+    <% for (const [title, rows] of [[copy.current, history.current], [copy.past, history.past]]) { if (!rows.length) continue; %>
+      <section class="order-history-section"><h2><%= title %></h2><div class="order-history-grid">
+      <% for (const entry of rows) { %><a class="order-history-card" href="/account/orders/<%= entry.id %>">
+        <div class="order-history-card-top"><span class="order-history-badge <%= entry.status === 'CANCELLED' ? 'is-cancelled' : '' %>"><%= orderStatus(entry) %></span><time datetime="<%= entry.created_at.toISOString() %>"><%= orderDate(entry.created_at) %></time></div>
+        <span class="order-history-reference"><bdi><%= entry.order_number %></bdi></span>
+        <span class="order-history-preview"><%= entry.order_items.map(item => locale === 'ar' ? item.product_name_ar || item.product_name : item.product_name).slice(0, 2).join(' · ') %></span>
+        <div class="order-history-card-bottom"><strong><%= orderMoney(entry.total_egp) %></strong><span><%= copy.view %> <span aria-hidden="true">↗</span></span></div>
+      </a><% } %></div></section>
+    <% } %>
+    <% if (history.page > 1 || history.hasNext) { %><nav class="order-history-pagination" aria-label="<%= copy.title %>"><% if (history.page > 1) { %><a class="button button-secondary" href="?page=<%= history.page - 1 %>"><%= copy.previous %></a><% } %><% if (history.hasNext) { %><a class="button button-secondary" href="?page=<%= history.page + 1 %>"><%= copy.next %></a><% } %></nav><% } %>
+  <% } %>
+</section>

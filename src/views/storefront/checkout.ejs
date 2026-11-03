@@ -1,0 +1,68 @@
+<link rel="stylesheet" href="/assets/css/pages/checkout.css?v=order-summary-20261103-3">
+<script src="/assets/js/checkout.js?v=order-summary-20261103-3" defer></script>
+<% const text = (en, ar) => locale === 'ar' ? ar : en; const account = typeof customer !== 'undefined' ? customer : null; const pay = typeof instapay === 'undefined' ? { enabled:false } : instapay; %>
+<section class="checkout-page container">
+  <header class="checkout-heading"><a class="text-link" href="/products">← <%= t('continueBrowsing') %></a><h1><%= t('checkoutTitle') %></h1></header>
+  <p id="checkout-status" role="status" aria-live="polite"></p><div id="checkout-result" hidden></div>
+  <form id="checkout-form" data-request-key="<%= requestKey %>" data-locale="<%= locale %>"
+    data-order-confirmed="<%= t('orderConfirmed') %>" data-order-pending-payment="<%= t('orderPendingPayment') %>" data-order-pending-verification="<%= t('orderPendingVerification') %>"
+    data-order-cancelled="<%= t('orderCancelled') %>" data-status-checking="<%= t('orderStatusChecking') %>" data-status-unknown="<%= t('orderStatusUnknown') %>"
+    data-status-conflict="<%= t('orderStatusConflict') %>" data-order-not-confirmed="<%= t('orderNotConfirmed') %>" data-response-interrupted="<%= t('orderResponseInterrupted') %>"
+    data-choose-item="<%= t('chooseItem') %>" data-total-label="<%= t('total') %>" data-verified-submit="<%= t('verifiedBeforeSubmit') %>"
+    data-reference-label="<%= t('reference') %>" data-payment-label="<%= t('paymentStatus') %>" data-saving-order="<%= t('savingOrder') %>"
+    data-paid="<%= t('paid') %>" data-pending="<%= t('pending') %>" data-unpaid="<%= t('unpaid') %>"
+    data-items-label="<%= t('checkoutItems') %>" data-subtotal-label="<%= t('cartTotal') %>" data-shipping-label="<%= t('shipping') %>" data-cash-label="<%= t('cashOnDelivery') %>"
+    data-location-busy="<%= text('Finding your address…', 'جارٍ تحديد عنوانك…') %>"
+    data-location-lookup-failed="<%= text('Location attached, but the written address could not be found. Please type your address below.', 'تم إرفاق الموقع، لكن تعذّر معرفة العنوان المكتوب. اكتبه بالأسفل.') %>" data-location-kept="<%= text('Location attached. Your edited address has been kept.', 'تم إرفاق الموقع والاحتفاظ بالعنوان الذي كتبته.') %>"
+    data-location-error="<%= text('Your location could not be found. Try again or type your delivery address.', 'تعذّر تحديد موقعك. حاول مجددًا أو اكتب عنوان التوصيل يدويًا.') %>" data-location-denied="<%= text('Location permission was not granted. You can enable it in browser settings or enter your address manually.', 'لم يتم السماح بالموقع. يمكنك تفعيله من إعدادات المتصفح أو كتابة العنوان يدويًا.') %>"
+    data-location-unsupported="<%= text('Location unavailable. Enter your address.', 'الموقع غير متاح. اكتب عنوانك يدويًا.') %>">
+    <input type="hidden" data-insta-messages data-awaiting="<%= text('Order received. Awaiting payment review.', 'تم تسجيل طلبك وهو في انتظار مراجعة التحويل من الإدارة. لم يتم تأكيد الدفع أو الطلب بعد.') %>" data-uploading="<%= text('Uploading your screenshot securely…', 'جارٍ رفع صورة التحويل بأمان…') %>" data-uploaded="<%= text('Screenshot attached.', 'تم إرفاق الصورة. أكمل إرسال الطلب للمراجعة.') %>" data-upload-error="<%= text('The screenshot could not be uploaded. Use a JPG, PNG or WebP image under 5 MB and try again.', 'تعذّر رفع الصورة. استخدم صورة JPG أو PNG أو WebP أقل من ٥ ميجابايت وحاول مجددًا.') %>">
+    <div class="checkout-layout"><div class="checkout-details">
+    <fieldset><legend><span class="checkout-step">1</span> <%= text('Contact details', 'بيانات التواصل') %></legend>
+      <div class="checkout-fields">
+      <label class="checkout-wide"><%= t('fullName') %><input name="name" value="<%= account?.name || '' %>" autocomplete="name" minlength="2" maxlength="160" required></label>
+      <label><%= t('email') %><input name="email" value="<%= account?.email || '' %>" type="email" autocomplete="email" maxlength="254" required></label>
+      <label><%= t('phone') %><input name="phone" type="tel" dir="ltr" autocomplete="tel" pattern="\+?[0-9]{8,15}" placeholder="01012345678" required></label>
+      </div>
+    </fieldset>
+    <fieldset><legend><span class="checkout-step">2</span> <%= text('Delivery address', 'عنوان التوصيل') %></legend>
+      <div class="checkout-location">
+      <div class="checkout-location-actions"><button type="button" class="button button-secondary" data-pick-location><span aria-hidden="true">⌖</span> <%= text('Use my location', 'استخدم موقعي') %></button><span data-location-result hidden><button type="button" class="text-link" data-remove-location><%= text('Remove location', 'إزالة الموقع') %></button></span></div>
+      <p class="checkout-help" data-location-status role="status" aria-live="polite"></p>
+      </div>
+      <div class="checkout-fields">
+      <label class="checkout-wide"><%= t('deliveryAddress') %><input name="address" autocomplete="street-address" minlength="5" maxlength="300" placeholder="<%= text('Street, building, floor and apartment', 'الشارع، رقم العمارة، الدور والشقة') %>" required></label>
+      <label><%= t('city') %><select name="city" required><% for (const [city, fee] of Object.entries(policy.shippingRates)) { %><option value="<%= city %>" data-fee="<%= fee %>"><%= locale === 'ar' ? policy.shippingLabels?.[city] || cityName(city, locale) : city %> — <%= t('shipping') %> <%= formatPrice(String(fee) + '.00', locale) %></option><% } %></select></label>
+      <label><%= t('postalCode') %><input name="postalCode" inputmode="numeric" autocomplete="postal-code" pattern="[0-9]{5}" maxlength="5"></label>
+      <label class="checkout-wide"><%= t('notes') %><textarea name="notes" maxlength="500" rows="2" placeholder="<%= text('Landmark or delivery instructions', 'علامة مميزة أو تعليمات للتوصيل') %>"></textarea></label>
+      </div>
+    </fieldset>
+    </div><aside class="checkout-summary" aria-label="<%= text('Order summary', 'ملخص الطلب') %>">
+    <fieldset><legend><%= text('Order summary', 'ملخص الطلب') %></legend>
+      <% if (!products.length) { %><p><%= t('noInventoryItems') %></p><% } %>
+      <% for (const product of products) { const price = product.sale_price_egp ?? product.price_egp; const name = locale === 'ar' ? product.name_ar || product.name : product.name; %>
+        <label class="checkout-product"><% if (product.image_url) { %><img src="<%= product.image_url %>" alt="" width="56" height="64" loading="lazy"><% } else { %><span class="checkout-product-placeholder" aria-hidden="true">▢</span><% } %><span class="checkout-product-name"><%= name %><small><%= formatPrice(String(price) + '.00', locale) %></small></span>
+          <span class="checkout-quantity"><small><%= t('quantity') %></small><input type="number" value="<%= cartQuantities?.[product.variant_id || product.id] || 0 %>" min="0" max="<%= Math.min(product.stock_quantity, 50) %>" data-product-id="<%= product.id %>" data-variant-id="<%= product.variant_id || '' %>" data-price="<%= price %>" aria-label="<%= t('quantity') %>: <%= name %>"></span>
+        </label>
+      <% } %>
+      <dl class="checkout-totals"><div><dt><%= t('cartTotal') %></dt><dd data-checkout-subtotal></dd></div><div><dt><%= t('shipping') %></dt><dd data-checkout-shipping></dd></div><div class="checkout-grand-total"><dt><%= t('total') %></dt><dd id="checkout-total" aria-live="polite"></dd></div></dl>
+      <fieldset class="payment-choice-group"><legend><%= t('paymentMethod') %></legend><div class="payment-choice-grid">
+        <label class="payment-choice"><input type="radio" name="paymentMethod" value="CASH_ON_DELIVERY" checked><span class="payment-symbol" aria-hidden="true">▣</span><span><strong><%= text('Cash', 'نقدًا') %></strong><small><%= text('On delivery', 'عند الاستلام') %></small></span></label>
+        <label class="payment-choice"><input type="radio" name="paymentMethod" value="INSTAPAY" <%= pay.enabled ? '' : 'disabled' %>><span class="payment-symbol payment-insta" aria-hidden="true">IP</span><span><strong>InstaPay</strong><small><%= pay.enabled ? text('Transfer & upload receipt', 'تحويل وإرفاق الإيصال') : text('Currently unavailable', 'غير متاح حاليًا') %></small></span></label>
+      </div></fieldset>
+      <button type="button" class="text-link" data-open-instapay hidden><%= text('Transfer details / screenshot', 'بيانات التحويل / صورة الإيصال') %></button>
+      <button class="button checkout-submit" type="submit" disabled><%= t('submitOrder') %></button>
+    </fieldset></aside></div>
+  </form>
+  <button class="text-link checkout-recover" type="button" id="check-order" hidden><%= t('checkOrderStatus') %></button>
+  <dialog class="instapay-dialog" data-instapay-dialog aria-labelledby="instapay-title"><div class="instapay-dialog-heading"><h2 id="instapay-title"><%= text('Transfer with InstaPay', 'التحويل عبر InstaPay') %></h2><button type="button" class="icon-button" data-close-instapay aria-label="<%= t('close') %>">×</button></div>
+    <p><%= text('Transfer the total and attach your receipt.', 'حوّل إجمالي الطلب بالضبط، ثم أرفق صورة التحويل. المتجر سيتحقق من وصول المبلغ قبل تأكيد طلبك.') %></p><strong class="instapay-amount" data-instapay-amount></strong>
+    <% if (pay.qrUrl) { %><img class="instapay-qr" src="<%= pay.qrUrl %>" alt="<%= text('Store InstaPay transfer QR code', 'رمز QR للتحويل إلى المتجر عبر InstaPay') %>"><% } %>
+    <% if (pay.phone) { %><p><%= text('Receiving mobile number', 'رقم الهاتف المستقبِل') %><br><strong><bdi dir="ltr"><%= pay.phone %></bdi></strong></p><% } %>
+    <% if (pay.url) { %><a class="button button-secondary" href="<%= pay.url %>" target="_blank" rel="noopener noreferrer"><%= text('Open InstaPay transfer link', 'فتح رابط التحويل عبر InstaPay') %> ↗</a><% } %>
+    <label class="instapay-file"><%= text('Transfer screenshot (required)', 'صورة التحويل (مطلوبة)') %><input type="file" accept="image/jpeg,image/png,image/webp" data-payment-file><small>JPG · PNG · WebP · <%= text('up to 5 MB', 'حتى ٥ ميجابايت') %></small></label>
+    <img data-payment-preview hidden class="instapay-preview" alt="<%= text('Your transfer screenshot preview', 'معاينة صورة التحويل') %>"><p data-payment-upload-status role="status" aria-live="polite"></p><button type="button" class="button" data-payment-continue disabled><%= text('Attach & continue to order', 'إرفاق الصورة والمتابعة للطلب') %></button>
+  </dialog>
+  <button class="button" type="button" id="new-order" hidden><%= t('startNewOrder') %></button>
+  <noscript><p><%= t('enableJavaScript') %></p></noscript>
+</section>

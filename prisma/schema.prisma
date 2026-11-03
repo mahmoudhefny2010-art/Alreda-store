@@ -1,0 +1,603 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["partialIndexes"]
+  engineType      = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model addresses {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String   @db.Uuid
+  label        String   @default("Home") @db.VarChar(60)
+  address_line String   @db.VarChar(300)
+  landmark     String   @default("") @db.VarChar(200)
+  floor        String   @default("") @db.VarChar(20)
+  apartment    String   @default("") @db.VarChar(20)
+  phone        String   @db.VarChar(24)
+  latitude     Decimal? @db.Decimal(10, 7)
+  longitude    Decimal? @db.Decimal(10, 7)
+  is_default   Boolean  @default(false)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
+  users        users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "addresses_user_id_foreign")
+  orders       orders[]
+
+  @@index([user_id, is_default], map: "addresses_user_default_idx")
+}
+
+model auth_rate_limits {
+  key_hash    String   @db.VarChar(64)
+  window_start DateTime @db.Timestamptz(6)
+  count       Int      @default(0)
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([key_hash, window_start], map: "auth_rate_limits_pk")
+  @@index([window_start], map: "auth_rate_limits_window_idx")
+}
+
+model categories {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source_id      String?    @unique(map: "categories_source_id_uq") @db.VarChar(80)
+  name           String     @db.VarChar(80)
+  name_ar        String     @db.VarChar(100)
+  slug           String     @unique(map: "categories_slug_unique") @db.VarChar(80)
+  description    String     @default("")
+  description_ar String     @default("")
+  is_active      Boolean    @default(true)
+  image_url      String     @default("")
+  home_section_id String?   @db.Uuid
+  homepage_order  Int        @default(0)
+  created_at     DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime   @default(now()) @db.Timestamptz(6)
+  products       products[]
+  product_categories product_categories[]
+  home_section   storefront_sections? @relation(fields: [home_section_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "categories_home_section_fk")
+
+  @@index([home_section_id, homepage_order], map: "categories_home_order_idx")
+}
+
+model storefront_sections {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug          String     @unique(map: "storefront_sections_slug_uq") @db.VarChar(80)
+  title_en      String     @db.VarChar(100)
+  title_ar      String     @db.VarChar(120)
+  display_order Int        @default(0)
+  is_active     Boolean    @default(true)
+  created_at    DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime   @default(now()) @db.Timestamptz(6)
+  categories    categories[]
+
+  @@index([is_active, display_order], map: "storefront_sections_display_idx")
+}
+
+model delivery_tokens {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id         String    @db.Uuid
+  token_hash       String    @unique(map: "delivery_tokens_token_hash_unique") @db.VarChar(128)
+  manual_code_hash String    @db.VarChar(128)
+  expires_at       DateTime  @db.Timestamptz(6)
+  used_at          DateTime? @db.Timestamptz(6)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime  @default(now()) @db.Timestamptz(6)
+  orders           orders    @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "delivery_tokens_order_id_foreign")
+
+  @@index([order_id, expires_at, used_at], map: "delivery_tokens_valid_idx")
+}
+
+model driver_locations {
+  id          BigInt   @id @default(autoincrement())
+  order_id    String   @db.Uuid
+  driver_id   String   @db.Uuid
+  latitude    Decimal  @db.Decimal(10, 7)
+  longitude   Decimal  @db.Decimal(10, 7)
+  recorded_at DateTime @default(now()) @db.Timestamptz(6)
+  users       users    @relation(fields: [driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "driver_locations_driver_id_foreign")
+  orders      orders   @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "driver_locations_order_id_foreign")
+
+  @@index([order_id, recorded_at], map: "driver_locations_order_recorded_idx")
+}
+
+model knex_migrations {
+  id             Int       @id @default(autoincrement())
+  name           String?   @db.VarChar(255)
+  batch          Int?
+  migration_time DateTime? @db.Timestamptz(6)
+}
+
+model knex_migrations_lock {
+  index     Int  @id @default(autoincrement())
+  is_locked Int?
+}
+
+model order_events {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id   String   @db.Uuid
+  status     String   @db.VarChar(32)
+  actor_id   String?  @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  note       String   @default("")
+  users      users?   @relation(fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "order_events_actor_id_foreign")
+  orders     orders   @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "order_events_order_id_foreign")
+
+  @@index([order_id, created_at], map: "order_events_order_created_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model order_items {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id        String    @db.Uuid
+  product_id      String?   @db.Uuid
+  product_name    String    @db.VarChar(120)
+  quantity        Int
+  unit_price_egp  Int
+  line_total_egp  Int
+  options         String    @default("[]")
+  is_custom       Boolean   @default(false)
+  product_name_ar String    @default("") @db.VarChar(160)
+  variant_id      String?   @db.Uuid
+  orders          orders    @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "order_items_order_id_foreign")
+  products        products? @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "order_items_product_id_foreign")
+  product_variants product_variants? @relation(fields: [variant_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "order_items_variant_id_foreign")
+
+  @@index([order_id], map: "order_items_order_idx")
+  @@index([variant_id], map: "order_items_variant_idx")
+}
+
+model order_requests {
+  user_id      String   @db.Uuid
+  request_key  String   @db.Uuid
+  request_hash String   @db.VarChar(64)
+  order_id     String   @db.Uuid
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  orders       orders   @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "order_requests_order_id_foreign")
+  users        users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "order_requests_user_id_foreign")
+
+  @@id([user_id, request_key])
+  @@index([order_id], map: "order_requests_order_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model orders {
+  payment_proof                          payment_proofs?
+  id                                     String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_number                           String             @unique(map: "orders_order_number_unique") @db.VarChar(24)
+  user_id                                String?            @db.Uuid
+  address_id                             String?            @db.Uuid
+  address_snapshot                       String
+  customer_name                          String             @db.VarChar(160)
+  customer_phone                         String             @db.VarChar(24)
+  status                                 String             @default("PLACED") @db.VarChar(32)
+  fulfillment_type                       String             @default("DELIVERY") @db.VarChar(16)
+  payment_method                         String             @default("CASH_ON_DELIVERY") @db.VarChar(24)
+  subtotal_egp                           Int
+  delivery_fee_egp                       Int                @default(0)
+  total_egp                              Int
+  notes                                  String             @default("")
+  assigned_driver_id                     String?            @db.Uuid
+  created_at                             DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at                             DateTime           @default(now()) @db.Timestamptz(6)
+  payment_status                         String             @default("UNCONFIRMED") @db.VarChar(16)
+  amount_received_egp                    Decimal?           @db.Decimal(12, 2)
+  change_due_egp                         Decimal?           @db.Decimal(12, 2)
+  paid_at                                DateTime?          @db.Timestamptz(6)
+  paid_by                                String?            @db.Uuid
+  receipt_number                         BigInt             @unique(map: "orders_receipt_number_unique") @default(autoincrement())
+  payment_provider_reference             String?            @db.VarChar(240)
+  payment_receipts                       payment_receipts[]
+  delivery_tokens                        delivery_tokens[]
+  driver_locations                       driver_locations[]
+  order_events                           order_events[]
+  order_items                            order_items[]
+  order_requests                         order_requests[]
+  addresses                              addresses?         @relation(fields: [address_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "orders_address_id_foreign")
+  users_orders_assigned_driver_idTousers users?             @relation("orders_assigned_driver_idTousers", fields: [assigned_driver_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "orders_assigned_driver_id_foreign")
+  users_orders_paid_byTousers            users?             @relation("orders_paid_byTousers", fields: [paid_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "orders_paid_by_foreign")
+  users_orders_user_idTousers            users?             @relation("orders_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "orders_user_id_foreign")
+
+  @@index([created_at, id], map: "orders_created_id_idx")
+  @@index([assigned_driver_id, created_at, id], map: "orders_driver_created_idx")
+  @@index([assigned_driver_id, status], map: "orders_driver_status_idx")
+  @@index([status, created_at], map: "orders_status_created_idx")
+  @@index([user_id, created_at], map: "orders_user_created_idx")
+}
+
+model product_options {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id      String   @db.Uuid
+  option_group    String   @db.VarChar(60)
+  name            String   @db.VarChar(100)
+  name_ar         String   @db.VarChar(120)
+  price_delta_egp Int      @default(0)
+  is_available    Boolean  @default(true)
+  sort_order      Int      @default(0)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
+  products        products @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "product_options_product_id_foreign")
+
+  @@unique([product_id, option_group, name], map: "product_options_group_name_uq")
+  @@index([product_id, option_group, is_available], map: "product_options_product_group_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model products {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source_id       String?           @unique(map: "products_source_id_uq") @db.VarChar(80)
+  category_id     String?           @db.Uuid
+  name            String            @db.VarChar(120)
+  name_ar         String            @db.VarChar(160)
+  slug            String            @unique(map: "products_slug_unique") @db.VarChar(120)
+  description     String            @default("")
+  description_ar  String            @default("")
+  price_egp       Int
+  image_url       String            @default("")
+  ingredients     String            @default("[]")
+  is_available    Boolean           @default(true)
+  is_featured     Boolean           @default(false)
+  prep_minutes    Int               @default(20)
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime          @default(now()) @db.Timestamptz(6)
+  sale_price_egp  Int?
+  stock_quantity Int?
+  order_items     order_items[]
+  product_options product_options[]
+  product_variants product_variants[]
+  product_images  product_images[]
+  cart_items      cart_items[]
+  product_categories product_categories[]
+  catalog_details   catalog_details?
+  categories      categories?       @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "products_category_id_foreign")
+
+  @@index([is_available, is_featured], map: "products_available_featured_idx")
+  @@index([category_id, is_available], map: "products_category_available_idx")
+}
+
+model product_categories {
+  product_id  String     @db.Uuid
+  category_id String     @db.Uuid
+  products    products   @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  categories  categories @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([product_id, category_id], map: "product_categories_pk")
+  @@index([category_id, product_id], map: "product_categories_category_product_idx")
+}
+
+model catalog_details {
+  product_id String   @id @db.Uuid
+  color_en   String   @default("") @db.VarChar(80)
+  color_ar   String   @default("") @db.VarChar(100)
+  type_en    String   @default("") @db.VarChar(100)
+  type_ar    String   @default("") @db.VarChar(120)
+  presentation Json   @default("{}")
+  products   products @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([type_en, color_en], map: "catalog_details_type_color_idx")
+}
+
+model admin_access_grants {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email      String   @unique @db.VarChar(254)
+  role       String   @db.VarChar(32)
+  is_active  Boolean  @default(true)
+  created_by String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model admin_audit_events {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actor_id   String   @db.Uuid
+  action     String   @db.VarChar(64)
+  target_id  String   @db.VarChar(254)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([created_at], map: "admin_audit_created_idx")
+}
+
+model discount_rules {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String   @db.VarChar(120)
+  name_ar    String   @db.VarChar(160)
+  mode       String   @db.VarChar(16)
+  amount     Int
+  scope      String   @db.VarChar(16)
+  target     String   @default("") @db.VarChar(160)
+  starts_at  DateTime @db.Timestamptz(6)
+  ends_at    DateTime @db.Timestamptz(6)
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([is_active, starts_at, ends_at], map: "discount_rules_active_idx")
+}
+
+model product_variants {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source_id           String           @unique(map: "product_variants_source_id_uq") @db.VarChar(80)
+  product_id          String           @db.Uuid
+  title               String           @db.VarChar(160)
+  title_ar            String           @default("") @db.VarChar(160)
+  price_egp           Decimal          @db.Decimal(12, 2)
+  compare_at_egp      Decimal?         @db.Decimal(12, 2)
+  sku                 String           @default("") @db.VarChar(120)
+  options             String           @default("[]")
+  is_available        Boolean          @default(false)
+  stock_quantity      Int?
+  source_image_id     String?          @db.VarChar(80)
+  color_hex           String            @default("") @db.VarChar(7)
+  created_at          DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime         @default(now()) @db.Timestamptz(6)
+  products            products         @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product_images      product_images[]
+  cart_items          cart_items[]
+  order_items         order_items[]
+
+  @@index([product_id, is_available], map: "product_variants_product_available_idx")
+}
+
+model product_images {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source_id      String           @db.VarChar(80)
+  product_id     String           @db.Uuid
+  variant_id     String?          @db.Uuid
+  secure_url     String           @db.VarChar(2048)
+  public_id      String           @default("") @db.VarChar(240)
+  asset_id       String           @default("") @db.VarChar(240)
+  alt_text       String           @default("") @db.VarChar(500)
+  display_order  Int              @default(0)
+  is_primary     Boolean          @default(false)
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime         @default(now()) @db.Timestamptz(6)
+  products       products         @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product_variants product_variants? @relation(fields: [variant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@unique([product_id, source_id], map: "product_images_product_source_uq")
+  @@index([product_id, display_order], map: "product_images_product_order_idx")
+  @@index([variant_id], map: "product_images_variant_idx")
+}
+
+model cloudinary_cleanup_jobs {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  public_id       String    @unique @db.VarChar(240)
+  asset_id        String?   @unique @db.VarChar(240)
+  status          String    @default("PENDING") @db.VarChar(16)
+  attempts        Int       @default(0)
+  next_attempt_at DateTime  @default(now()) @db.Timestamptz(6)
+  last_error_code String    @default("") @db.VarChar(64)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  completed_at    DateTime? @db.Timestamptz(6)
+
+  @@index([status, next_attempt_at], map: "cloudinary_cleanup_due_idx")
+}
+
+model payment_receipts {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id          String   @unique @db.Uuid
+  provider          String   @db.VarChar(64)
+  event_id          String   @db.VarChar(160)
+  payment_reference String   @db.VarChar(160)
+  amount_egp        Int
+  currency          String   @db.VarChar(3)
+  verified_at       DateTime @default(now()) @db.Timestamptz(6)
+  orders            orders   @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([provider, event_id])
+  @@unique([provider, payment_reference])
+}
+
+model push_subscribers {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                   String   @db.Uuid
+  external_id               String   @db.VarChar(80)
+  onesignal_subscription_id String   @unique(map: "push_subscribers_onesignal_subscription_id_unique") @db.VarChar(120)
+  created_at                DateTime @default(now()) @db.Timestamptz(6)
+  users                     users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "push_subscribers_user_id_foreign")
+
+  @@unique([user_id, onesignal_subscription_id], map: "push_subscribers_user_subscription_uq")
+  @@index([user_id], map: "push_subscribers_user_idx")
+}
+
+model site_copy {
+  source_text String   @id @db.VarChar(500)
+  value_en    String   @default("")
+  value_ar    String   @default("")
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model site_page_views {
+  id          BigInt   @id @default(autoincrement())
+  visitor_key String   @db.VarChar(64)
+  user_id     String?  @db.Uuid
+  path        String   @db.VarChar(160)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  users       users?   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "site_page_views_user_id_foreign")
+
+  @@index([created_at, path], map: "site_page_views_created_path_idx")
+  @@index([user_id, created_at], map: "site_page_views_user_created_idx")
+  @@index([visitor_key, created_at], map: "site_page_views_visitor_created_idx")
+}
+
+model site_settings {
+  setting_key String   @id @db.VarChar(120)
+  value_en    String   @default("")
+  value_ar    String   @default("")
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model site_visitors {
+  visitor_key   String   @id @db.VarChar(64)
+  user_id       String?  @db.Uuid
+  first_seen_at DateTime @default(now()) @db.Timestamptz(6)
+  last_seen_at  DateTime @default(now()) @db.Timestamptz(6)
+  visit_count   Int      @default(0)
+  users         users?   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "site_visitors_user_id_foreign")
+
+  @@index([last_seen_at], map: "site_visitors_seen_idx")
+  @@index([user_id, last_seen_at], map: "site_visitors_user_seen_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model user_roles {
+  user_id String @db.Uuid
+  role    String @db.VarChar(24)
+  users   users  @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_roles_user_id_foreign")
+
+  @@id([user_id, role], map: "user_roles_pk")
+  @@index([role, user_id], map: "user_roles_role_user_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  payment_proofs_owned                     payment_proofs[] @relation("proof_owner")
+  payment_proofs_reviewed                  payment_proofs[] @relation("proof_reviewer")
+  id                                      String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  google_id                               String?            @unique(map: "users_google_id_uq", where: raw("(google_id IS NOT NULL)")) @db.VarChar(160)
+  email                                   String             @unique(map: "users_email_unique") @db.VarChar(254)
+  name                                    String             @db.VarChar(160)
+  phone                                   String?            @db.VarChar(24)
+  role                                    String             @default("customer") @db.VarChar(24)
+  is_active                               Boolean            @default(true)
+  created_at                              DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at                              DateTime           @default(now()) @db.Timestamptz(6)
+  addresses                               addresses[]
+  driver_locations                        driver_locations[]
+  order_events                            order_events[]
+  order_requests                          order_requests[]
+  orders_orders_assigned_driver_idTousers orders[]           @relation("orders_assigned_driver_idTousers")
+  orders_orders_paid_byTousers            orders[]           @relation("orders_paid_byTousers")
+  orders_orders_user_idTousers            orders[]           @relation("orders_user_idTousers")
+  push_subscribers                        push_subscribers[]
+  site_page_views                         site_page_views[]
+  site_visitors                           site_visitors[]
+  user_roles                              user_roles[]
+  customer_sessions                       customer_sessions[]
+  shopping_carts                          shopping_carts[]
+  notification_preferences                notification_preferences?
+  notification_outbox                     notification_outbox[]
+  cart_reminders                          cart_reminders[]
+
+  @@index([role, is_active], map: "users_role_active_idx")
+}
+
+model payment_proofs {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String    @db.Uuid
+  order_id           String?   @unique @db.Uuid
+  public_id          String    @unique @db.VarChar(240)
+  content_hash       String    @unique @db.VarChar(64)
+  format             String    @default("png") @db.VarChar(8)
+  status             String    @default("UPLOADED") @db.VarChar(16)
+  transfer_reference String?   @unique @db.VarChar(120)
+  reviewed_by        String?   @db.Uuid
+  reviewed_at        DateTime? @db.Timestamptz(6)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  expires_at         DateTime  @db.Timestamptz(6)
+  orders             orders?   @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  owner              users     @relation("proof_owner", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reviewer           users?    @relation("proof_reviewer", fields: [reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@index([user_id, created_at], map: "payment_proofs_owner_created_idx")
+}
+
+model customer_sessions {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token_hash String   @unique(map: "customer_sessions_token_hash_uq") @db.VarChar(64)
+  user_id    String   @db.Uuid
+  expires_at DateTime @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, expires_at], map: "customer_sessions_user_expiry_idx")
+  @@index([expires_at], map: "customer_sessions_expiry_idx")
+}
+
+model shopping_carts {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String?     @db.Uuid
+  guest_token_hash String?    @unique(map: "shopping_carts_guest_token_hash_uq") @db.VarChar(64)
+  status          String      @default("ACTIVE") @db.VarChar(16)
+  created_at      DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime    @default(now()) @db.Timestamptz(6)
+  users           users?      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cart_items      cart_items[]
+  cart_reminder   cart_reminders?
+
+  @@index([user_id, status, updated_at], map: "shopping_carts_user_status_updated_idx")
+  @@index([status, updated_at], map: "shopping_carts_status_updated_idx")
+}
+
+model cart_items {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cart_id    String        @db.Uuid
+  product_id String        @db.Uuid
+  variant_id String?       @db.Uuid
+  quantity   Int
+  created_at DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at DateTime      @default(now()) @db.Timestamptz(6)
+  carts      shopping_carts @relation(fields: [cart_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products   products       @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product_variants product_variants? @relation(fields: [variant_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "cart_items_variant_id_foreign")
+
+  @@index([cart_id, product_id, variant_id], map: "cart_items_cart_product_variant_idx")
+  @@index([product_id], map: "cart_items_product_idx")
+}
+
+model notification_preferences {
+  user_id                    String   @id @db.Uuid
+  transactional_enabled      Boolean  @default(true)
+  marketing_enabled           Boolean  @default(false)
+  updated_at                 DateTime @default(now()) @db.Timestamptz(6)
+  users                      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model notification_outbox {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String   @db.Uuid
+  order_id         String?  @db.Uuid
+  reminder_id      String?  @unique(map: "notification_outbox_reminder_uq") @db.Uuid
+  event_type       String   @db.VarChar(40)
+  dedupe_key       String   @unique(map: "notification_outbox_dedupe_uq") @db.VarChar(200)
+  payload          Json
+  status           String   @default("PENDING") @db.VarChar(16)
+  attempts         Int      @default(0)
+  locked_until     DateTime? @db.Timestamptz(6)
+  available_at     DateTime @default(now()) @db.Timestamptz(6)
+  sent_at          DateTime? @db.Timestamptz(6)
+  last_error_code  String   @default("") @db.VarChar(64)
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  users            users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reminders        cart_reminders? @relation(fields: [reminder_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  attempts_log     notification_attempts[]
+
+  @@index([status, available_at, created_at], map: "notification_outbox_pending_idx")
+  @@index([user_id, created_at], map: "notification_outbox_user_created_idx")
+}
+
+model notification_attempts {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  outbox_id         String   @db.Uuid
+  status            String   @db.VarChar(16)
+  provider_message_id String @default("") @db.VarChar(160)
+  error_code        String   @default("") @db.VarChar(64)
+  attempted_at      DateTime @default(now()) @db.Timestamptz(6)
+  outbox            notification_outbox @relation(fields: [outbox_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([outbox_id, attempted_at], map: "notification_attempts_outbox_time_idx")
+}
+
+model cart_reminders {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cart_id      String   @unique(map: "cart_reminders_cart_uq") @db.Uuid
+  user_id      String   @db.Uuid
+  status       String   @default("SCHEDULED") @db.VarChar(16)
+  run_after    DateTime @db.Timestamptz(6)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  users        users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  carts        shopping_carts @relation(fields: [cart_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  notification_outbox notification_outbox?
+
+  @@index([status, run_after], map: "cart_reminders_due_idx")
+}
+
+
+

@@ -1,0 +1,12 @@
+<% const colorsForOffer = (typeof colorOptions === 'undefined' ? [] : colorOptions).filter(color => (product.product_variants || []).some(variant => { try { return JSON.parse(variant.options || '[]').includes(color.en); } catch { return false; } })); %>
+<% if (colorsForOffer.length) { %><details class="promotion-color-offers"><summary><%= locale === 'ar' ? 'عروض ألوان هذا المنتج' : 'Color offers for this product' %></summary>
+  <p><%= locale === 'ar' ? 'اترك الخانة فارغة لإلغاء العرض الخاص باللون. أي عرض عام أو حملة سارية يظل مطبقًا.' : 'Leave empty to remove this color offer. Other product offers and active campaigns still apply.' %></p>
+  <% for (const color of colorsForOffer) { const price = product.catalog_details?.presentation?.colorOffers?.[color.en]; %>
+    <form method="post" action="/admin/promotions/products/<%= product.id %>/color-offer" class="promotion-color-offer-row">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="color" value="<%= color.en %>">
+      <span class="promotion-color-name"><i class="catalog-color-dot" style="--swatch-color:<%= color.hex %>" aria-hidden="true"></i><%= locale === 'ar' ? color.ar : color.en %></span>
+      <label><%= a('offerPrice') %><input name="salePriceEgp" type="number" min="1" max="10000000" step="1" value="<%= price ?? '' %>"></label>
+      <button class="button" type="submit"><%= a('save') %></button>
+    </form>
+  <% } %>
+</details><% } %>

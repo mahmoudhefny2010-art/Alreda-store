@@ -1,0 +1,10 @@
+<section class="section container">
+  <% const unavailable = typeof shippingError !== 'undefined' && shippingError === 'SHIPPING_UNAVAILABLE'; %>
+  <h1><%= locale === 'ar' ? 'التوصيل غير متاح مؤقتًا' : 'Delivery temporarily unavailable' %></h1>
+  <p><%= unavailable ? (locale === 'ar' ? 'تعذّر تحميل أسعار التوصيل المحفوظة. لم يتم إنشاء طلب؛ حاول تحديث الصفحة بعد قليل.' : 'Delivery is temporarily unavailable. Please try again.') : (locale === 'ar' ? 'لا توجد مناطق توصيل مفعّلة في الإعدادات المحفوظة حاليًا. سلتك محفوظة؛ يرجى التواصل مع المتجر.' : 'Delivery is currently unavailable. Please contact us.') %></p>
+  <% if (!unavailable && (customer?.admin_permissions?.includes('orders') || customer?.role === 'admin')) { %>
+    <a class="button" href="/admin/delivery"><%= locale === 'ar' ? 'تحديد أسعار التوصيل من الإدارة' : 'Set delivery prices in administration' %></a>
+  <% } %>
+  <% if (unavailable) { %><a class="button" href="/checkout"><%= locale === 'ar' ? 'إعادة المحاولة' : 'Try again' %></a><% } %>
+  <a class="button" href="/products"><%= t('continueBrowsing') %></a>
+</section>

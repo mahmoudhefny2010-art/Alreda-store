@@ -1,0 +1,15 @@
+.env
+.env.*
+node_modules
+.npm-cache
+.git
+.aws
+.codex
+.agents
+data
+test-results
+playwright-report
+coverage
+tests
+*.log
+docs

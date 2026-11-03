@@ -1,0 +1,33 @@
+<% const text = (en, ar) => locale === 'ar' ? ar : en; %>
+<section class="admin-management store-operations">
+  <header class="admin-page-heading"><div><h1><%= text('Delivery prices', 'أسعار التوصيل') %></h1><p><%= text('Set delivery charges and the areas you serve. Saved prices are checked again when a customer submits an order.', 'حدد تكلفة التوصيل والمناطق المتاحة. يتم التحقق من الأسعار المحفوظة مجددًا عند إرسال الطلب.') %></p></div></header>
+  <% if (saved) { %><p class="operations-success" role="status"><%= text('Delivery settings saved.', 'تم حفظ إعدادات التوصيل.') %> <%= configuration.zones.some(zone => zone.enabled) ? text('Checkout now uses these prices.', 'إتمام الطلب يستخدم هذه الأسعار الآن.') : text('No areas are enabled, so delivery checkout is paused.', 'لا توجد مناطق مفعّلة؛ إتمام طلبات التوصيل متوقف.') %></p><% } %>
+  <% if (!usingDatabase) { %><p class="operations-hint" role="status"><%= text('These prices have not been saved to the database yet. Use Save delivery prices below or in the top bar.', 'هذه الأسعار لم تُحفظ في قاعدة البيانات بعد. استخدم «حفظ أسعار التوصيل» أسفل النموذج أو أعلى الصفحة.') %></p><% } %>
+  <% if (typeof errorCode !== 'undefined' && errorCode) { const errors = {
+    REQUEST_ORIGIN_REJECTED: text('The security check failed. Reload this page and try again. Your changes are shown below.', 'تعذّر التحقق من طلب الحفظ. أعد تحميل الصفحة وحاول مجددًا. التعديلات ظاهرة بالأسفل.'),
+    INVALID_SETTINGS: text('Check the area names and use whole, non-negative delivery prices. Area names must be unique.', 'راجع أسماء المناطق واكتب أسعارًا صحيحة غير سالبة بدون كسور. أسماء المناطق يجب ألا تتكرر.'),
+    ADMIN_REQUIRED: text('This account cannot change delivery prices.', 'هذا الحساب لا يملك صلاحية تعديل أسعار التوصيل.'),
+    DELIVERY_SAVE_UNVERIFIED: text('The saved prices could not be verified in the database. Your changes are shown below; retry saving to verify them.', 'تعذّر التأكد من حفظ الأسعار في قاعدة البيانات. تعديلاتك ظاهرة بالأسفل؛ أعد الحفظ للتحقق منها.')
+  }; %><p class="operations-hint" role="alert"><%= errors[errorCode] || errors.DELIVERY_SAVE_UNVERIFIED %> <code><%= errorCode %></code></p><% } %>
+  <form id="delivery-settings-form" class="workspace-panel admin-form" method="post" action="/admin/delivery" data-delivery-form>
+    <input type="hidden" name="_csrf" value="<%= typeof csrfToken === 'string' ? csrfToken : '' %>">
+    <input type="hidden" name="configuration" value="<%= JSON.stringify(configuration) %>" data-delivery-configuration>
+    <div class="admin-fields">
+      <label><%= text('Pricing method', 'طريقة التسعير') %><select data-delivery-mode><option value="CITY" <%= configuration.mode === 'CITY' ? 'selected' : '' %>><%= text('Different price per area', 'سعر مختلف لكل منطقة') %></option><option value="FLAT" <%= configuration.mode === 'FLAT' ? 'selected' : '' %>><%= text('One price for all enabled areas', 'سعر موحد لكل المناطق المتاحة') %></option></select></label>
+      <label data-flat-fee-label><%= text('Flat delivery fee (EGP)', 'سعر التوصيل الموحد (جنيه)') %><input type="number" min="0" max="1000000" step="1" value="<%= configuration.flatFee %>" data-flat-fee required></label>
+    </div>
+    <p class="operations-hint"><%= text('Enable the areas you deliver to. A fee of 0 means free delivery. Unchecked areas cannot be selected at checkout. Existing orders keep their original fee.', 'فعّل المناطق التي توصل إليها. السعر ٠ يعني توصيلًا مجانيًا. المناطق غير المفعلة لا تظهر في إتمام الطلب. الطلبات السابقة تحتفظ بتكلفة توصيلها.') %></p>
+    <div class="delivery-zone-heading" aria-hidden="true"><span><%= text('Available', 'متاح') %></span><span>English</span><span>العربية</span><span><%= text('Fee (EGP)', 'السعر (جنيه)') %></span></div>
+    <div data-delivery-zones class="delivery-zones"><% for (const zone of configuration.zones) { %><div class="delivery-zone" data-delivery-zone>
+      <label class="admin-check"><input type="checkbox" data-zone-enabled <%= zone.enabled ? 'checked' : '' %> aria-label="<%= text('Deliver to ', 'التوصيل إلى ') + (locale === 'ar' ? zone.cityAr : zone.city) %>"><span class="sr-only"><%= text('Available', 'متاح') %></span></label>
+      <input value="<%= zone.city %>" data-zone-city lang="en" dir="ltr" maxlength="80" minlength="2" required aria-label="<%= text('Area in English', 'المنطقة بالإنجليزية') %>">
+      <input value="<%= zone.cityAr %>" data-zone-ar lang="ar" dir="rtl" maxlength="100" required aria-label="<%= text('Area in Arabic', 'المنطقة بالعربية') %>">
+      <input value="<%= zone.fee %>" data-zone-fee type="number" min="0" max="1000000" step="1" required aria-label="<%= text('Delivery fee in EGP', 'سعر التوصيل بالجنيه') %>">
+      <button type="button" class="button button-secondary" data-remove-zone><%= text('Delete area', 'حذف المنطقة') %></button>
+    </div><% } %></div>
+    <div class="operations-actions"><button type="button" class="button button-secondary" data-add-zone><%= text('Add another area', 'إضافة منطقة أخرى') %></button><button class="button" type="submit"><%= text('Save delivery prices', 'حفظ أسعار التوصيل') %></button></div>
+    <p class="operations-hint" data-delivery-summary role="status" aria-live="polite"></p>
+    <% if (!usingDatabase) { %><p class="operations-hint"><%= text('Current environment prices are shown where configured. Saving here makes these database settings the active delivery policy.', 'تظهر أسعار ملف الإعدادات الحالية إن وُجدت. بعد الحفظ تصبح هذه الإعدادات المحفوظة في قاعدة البيانات هي المعتمدة.') %></p><% } %>
+  </form>
+</section>
+<script src="/assets/js/admin-store-operations.js?v=operations-20261103-1" defer></script>

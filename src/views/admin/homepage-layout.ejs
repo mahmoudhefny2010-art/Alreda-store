@@ -1,0 +1,61 @@
+<section class="admin-management homepage-manager" data-home-layout data-save-url="/api/admin/homepage-layout"
+  data-saved="<%= a('layoutSaved') %>" data-error="<%= a('layoutSaveError') %>" data-empty-label="<%= a('sectionEmpty') %>" data-drag-label="<%= a('dragCollection') %>" data-up-label="<%= a('moveUp') %>" data-down-label="<%= a('moveDown') %>">
+  <header class="admin-page-heading"><div><span class="admin-eyebrow"><%= a('catalog') %></span><h1><%= a('homepageLayoutTitle') %></h1><p><%= a('homepageLayoutIntro') %></p></div><a class="admin-topbar-store" href="/"><%= a('storefront') %></a></header>
+  <form class="workspace-panel admin-form homepage-create-section" action="/admin/catalog/homepage/sections" method="post">
+    <h2><%= a('createSection') %></h2>
+    <div class="admin-fields">
+      <label><%= a('sectionTitleEn') %><input name="titleEn" maxlength="100" required></label>
+      <label><%= a('sectionTitleAr') %><input name="titleAr" maxlength="120" dir="rtl" lang="ar" required></label>
+      <label><%= a('sectionSlug') %><input name="slug" maxlength="80" pattern="[a-z0-9]+(-[a-z0-9]+)*" dir="ltr" required></label>
+      <button class="button" type="submit"><%= a('addSection') %></button>
+    </div>
+  </form>
+
+  <div class="homepage-section-list" data-section-list>
+    <% for (const section of sections) { const assigned = categories.filter(category => category.home_section_id === section.id).sort((a,b) => a.homepage_order - b.homepage_order); %>
+      <section class="workspace-panel homepage-section" data-home-section data-section-id="<%= section.id %>">
+        <header class="homepage-section-head">
+          <div class="homepage-section-titles">
+            <label><%= a('sectionTitleEn') %><input data-section-title-en maxlength="100" value="<%= section.title_en %>" required></label>
+            <label><%= a('sectionTitleAr') %><input data-section-title-ar maxlength="120" dir="rtl" lang="ar" value="<%= section.title_ar %>" required></label>
+          </div>
+          <div class="homepage-order-controls">
+            <button type="button" data-section-up aria-label="<%= a('moveUp') %>" title="<%= a('moveUp') %>">↑</button>
+            <button type="button" data-section-down aria-label="<%= a('moveDown') %>" title="<%= a('moveDown') %>">↓</button>
+            <% if (!assigned.length && sections.length > 1) { %><form action="/admin/catalog/homepage/sections/<%= section.id %>/delete" method="post"><button class="homepage-remove-section" type="submit" title="<%= a('removeSection') %>" aria-label="<%= a('removeSection') %>">×</button></form><% } %>
+          </div>
+        </header>
+        <div class="homepage-category-list" data-drop-section="<%= section.id %>">
+          <% for (const category of assigned) { %>
+            <article class="homepage-category" data-home-category data-category-id="<%= category.id %>">
+              <button class="homepage-drag-handle" type="button" data-drag-handle aria-label="<%= a('dragCollection') %>" title="<%= a('dragCollection') %>">⠿</button>
+              <% if (category.previewImage || category.image_url) { %><img src="<%= category.image_url || category.previewImage %>" alt="" loading="lazy" width="64" height="64"><% } else { %><span class="homepage-category-placeholder" aria-hidden="true">▦</span><% } %>
+              <span class="homepage-category-name"><label class="homepage-name-field"><span class="sr-only"><%= a('name') %></span><input data-category-name-en maxlength="80" value="<%= category.name %>" aria-label="<%= a('name') %>" required></label><label class="homepage-name-field"><span class="sr-only"><%= a('nameAr') %></span><input data-category-name-ar maxlength="100" dir="rtl" lang="ar" value="<%= category.name_ar %>" aria-label="<%= a('nameAr') %>" required></label><small><%= category.slug %></small><select class="homepage-category-destination" data-category-section aria-label="<%= a('moveCollectionToSection') %>"><option value="hidden"><%= a('hideFromHomepage') %></option><% for (const destination of sections) { %><option value="<%= destination.id %>" <%= category.home_section_id === destination.id ? 'selected' : '' %>><%= destination.title_en %> / <%= destination.title_ar %></option><% } %></select></span>
+              <div class="homepage-order-controls">
+                <button type="button" data-item-up aria-label="<%= a('moveUp') %>" title="<%= a('moveUp') %>">↑</button>
+                <button type="button" data-item-down aria-label="<%= a('moveDown') %>" title="<%= a('moveDown') %>">↓</button>
+              </div>
+            </article>
+          <% } %>
+          <% if (!assigned.length) { %><p class="homepage-drop-hint"><%= a('sectionEmpty') %></p><% } %>
+        </div>
+      </section>
+    <% } %>
+  </div>
+
+  <details class="workspace-panel homepage-hidden" data-hidden-section>
+    <summary><%= a('hideFromHomepage') %> (<%= categories.filter(category => !category.home_section_id).length %>)</summary>
+    <div class="homepage-category-list" data-drop-section="hidden">
+      <% for (const category of categories.filter(item => !item.home_section_id)) { %>
+        <article class="homepage-category" data-home-category data-category-id="<%= category.id %>">
+          <button class="homepage-drag-handle" type="button" data-drag-handle aria-label="<%= a('dragCollection') %>" title="<%= a('dragCollection') %>">⠿</button>
+          <% if (category.previewImage || category.image_url) { %><img src="<%= category.image_url || category.previewImage %>" alt="" loading="lazy" width="64" height="64"><% } else { %><span class="homepage-category-placeholder" aria-hidden="true">▦</span><% } %>
+          <span class="homepage-category-name"><label class="homepage-name-field"><span class="sr-only"><%= a('name') %></span><input data-category-name-en maxlength="80" value="<%= category.name %>" aria-label="<%= a('name') %>" required></label><label class="homepage-name-field"><span class="sr-only"><%= a('nameAr') %></span><input data-category-name-ar maxlength="100" dir="rtl" lang="ar" value="<%= category.name_ar %>" aria-label="<%= a('nameAr') %>" required></label><small><%= category.slug %></small><select class="homepage-category-destination" data-category-section aria-label="<%= a('moveCollectionToSection') %>"><option value="hidden" selected><%= a('hideFromHomepage') %></option><% for (const destination of sections) { %><option value="<%= destination.id %>"><%= destination.title_en %> / <%= destination.title_ar %></option><% } %></select></span>
+          <div class="homepage-order-controls"><button type="button" data-item-up aria-label="<%= a('moveUp') %>" title="<%= a('moveUp') %>">↑</button><button type="button" data-item-down aria-label="<%= a('moveDown') %>" title="<%= a('moveDown') %>">↓</button></div>
+        </article>
+      <% } %>
+    </div>
+  </details>
+  <div class="homepage-save-row"><p role="status" aria-live="polite" data-save-status></p><button class="button" type="button" data-save-layout disabled><%= a('saveHomepageLayout') %></button></div>
+</section>
+<script src="/assets/js/homepage-layout.js?v=homepage-order-20261103-1"></script>

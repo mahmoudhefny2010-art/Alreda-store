@@ -1,0 +1,29 @@
+.variant-editor{display:grid;gap:14px;margin:20px 0;padding:18px;border:1px solid #dedede;border-radius:10px;background:#fff;min-width:0}
+.variant-editor *{box-sizing:border-box}
+.variant-editor legend{padding-inline:7px;font-weight:650}
+.variant-editor [data-variant-editor-controls][hidden],.variant-editor [hidden]{display:none!important}
+.variant-editor .catalog-color-help{margin:0;max-width:900px;line-height:1.65}
+.variant-generator,.variant-bulk{padding:12px 14px;border:1px solid #e5e5e5;border-radius:8px;background:#fafafa}
+.variant-generator summary,.variant-bulk summary{cursor:pointer;font-weight:600}
+.variant-generator-actions,.variant-bulk-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.variant-option-definition{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+.variant-option-definition label,.variant-editor-toolbar label,.variant-combination-fields label{display:grid;gap:6px;min-width:0;font-size:12px;color:#626262}
+.variant-editor input,.variant-editor select{width:100%;min-width:0;min-height:42px;padding:9px 11px;border:1px solid #d8d8d8;border-radius:6px;background:white;color:#222;font:inherit}
+.variant-editor-toolbar{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,1fr) auto;gap:12px;align-items:end}
+.variant-editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.variant-combination-card{display:grid;align-content:start;gap:14px;min-width:0;padding:14px;border:1px solid #e1e3e1;border-radius:9px;background:#fff}
+.variant-combination-heading{display:flex;align-items:center;gap:11px;min-width:0}
+.variant-combination-heading strong{overflow-wrap:anywhere}
+.variant-combination-heading img{flex:0 0 58px;width:58px;height:58px;object-fit:cover;border:1px solid #e4e4e4;border-radius:6px;background:#f6f6f6}
+.variant-combination-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.variant-combination-fields label{font-weight:500}
+.variant-combination-active{display:flex!important;grid-auto-flow:column;grid-template-columns:auto 1fr!important;align-items:center;justify-content:start;gap:8px!important}
+.variant-combination-active input{width:18px;height:18px;min-height:18px;accent-color:#263f38}
+.variant-combination-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:10px;border-top:1px solid #eee}
+.variant-combination-actions .text-link{border:0;background:none;text-decoration:underline;cursor:pointer}
+.variant-editor-status{min-height:1.3em;margin:0;color:#315746;font-size:13px}
+.variant-editor .admin-check{display:flex;align-items:center;gap:10px}
+.variant-editor .admin-check input{width:19px;height:19px;min-height:19px;accent-color:#263f38}
+.variant-editor [data-catalog-color-picker][hidden]{display:none!important}
+@media(max-width:850px){.variant-editor-grid{grid-template-columns:1fr}.variant-editor-toolbar{grid-template-columns:1fr 1fr}.variant-editor-toolbar button{grid-column:1/-1}.variant-option-definition{grid-template-columns:repeat(2,minmax(0,1fr))}.variant-option-definition label:last-child{grid-column:1/-1}}
+@media(max-width:560px){.variant-editor{padding:13px}.variant-option-definition,.variant-editor-toolbar,.variant-combination-fields,.variant-generator-actions,.variant-bulk-controls{grid-template-columns:1fr}.variant-editor-toolbar button,.variant-option-definition label:last-child{grid-column:auto}.variant-combination-card{padding:12px}.variant-combination-heading img{flex-basis:50px;width:50px;height:50px}}

@@ -1,0 +1,18 @@
+<section class="container collection-page" aria-labelledby="collection-title">
+  <%- include('../partials/breadcrumbs', { items: [{ label: t('home'), href: '/' }, { label: t('collectionsTitle'), href: '/#collections' }, { label: category.name }] }) %>
+  <header class="collection-heading"><p class="preview-label"><%= category.slug ? t('collection') : t('catalogLabel') %></p><h1 id="collection-title"><bdi><%= category.name %></bdi></h1><p><%= productCount(totalCount) %></p></header>
+  <div class="collection-layout">
+    <aside class="collection-sidebar"><h2><%= t('collectionsTitle') %></h2><nav aria-label="<%= t('collectionNavigation') %>"><a href="/products" <% if (!category.slug) { %>aria-current="page"<% } %>><%= t('allProducts') %></a><% categories.forEach(item => { %><a href="<%= item.href %>" <% if (item.slug === category.slug) { %>aria-current="page"<% } %>><bdi><%= item.name %></bdi></a><% }); %></nav></aside>
+    <div class="collection-products">
+      <form class="collection-toolbar" method="get" action="<%= category.href %>">
+        <div class="collection-search"><label for="product-query"><%= t('searchThisCollection') %></label><input id="product-query" name="q" type="search" maxlength="120" value="<%= q %>" placeholder="<%= t('productName') %>"></div>
+        <div><label for="product-sort"><%= t('sortBy') %></label><select id="product-sort" name="sort"><option value="featured" <%= sort === 'featured' ? 'selected' : '' %>><%= t('featured') %></option><option value="price-asc" <%= sort === 'price-asc' ? 'selected' : '' %>><%= t('priceLowHigh') %></option><option value="price-desc" <%= sort === 'price-desc' ? 'selected' : '' %>><%= t('priceHighLow') %></option></select></div>
+        <button class="button" type="submit"><%= t('apply') %></button>
+      </form>
+      <p class="collection-result-count"><%= productCount(matchedCount) %><% if (q) { %> <%= t('matching') %> “<%= q %>”<% } %> · <%= t('page') %> <%= number(page) %> <%= t('of') %> <%= number(pageCount) %></p>
+      <%- include('../partials/product-grid', { products }) %>
+      <% if (pageCount > 1) { %><nav class="catalog-pagination" aria-label="<%= t('productPages') %>"><% pagination.forEach(item => { %><a href="<%= item.href %>" <% if (item.number === page) { %>aria-current="page"<% } %> aria-label="<%= t('page') %> <%= number(item.number) %>"><%= number(item.number) %></a><% }); %></nav><% } %>
+      <% if (q) { %><a class="text-link clear-filters" href="<%= category.href %>"><%= t('clearSearch') %></a><% } %>
+    </div>
+  </div>
+</section>

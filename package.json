@@ -1,0 +1,55 @@
+{
+  "name": "alreda-store",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Alreda Store independent commerce platform — Phase 1 foundation",
+  "type": "commonjs",
+  "engines": {
+    "node": "^22.12.0 || >=24.0.0"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "catalog:import": "node scripts/catalog-import/run.js",
+    "media:migrate": "node scripts/catalog-import/cloudinary.js",
+    "db:validate": "node scripts/database/prisma.js validate",
+    "db:generate": "node scripts/database/prisma.js generate",
+    "db:status": "node scripts/database/prisma.js status",
+    "db:migrate": "node scripts/database/prisma.js deploy",
+    "db:check": "node scripts/database/check.js",
+    "shopping:check": "node scripts/database/shopping-check.js",
+    "db:catalog:import": "node scripts/database/import-catalog.js",
+    "db:catalog:verify": "node scripts/database/verify-catalog.js",
+    "build": "npm run db:generate",
+    "check": "npm run lint && npm test",
+    "catalog:details": "node scripts/catalog-import/refresh-details.js",
+    "catalog:translate:manual": "node scripts/catalog-import/translate-manual.js"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "cloudinary": "^2.11.0",
+    "dotenv": "^17.4.2",
+    "ejs": "^7.0.2",
+    "express": "^5.3.0",
+    "helmet": "^8.3.0",
+    "multer": "^2.5.0",
+    "pg": "8.23.1",
+    "sanitize-html": "^2.18.1",
+    "sharp": "^0.35.5",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
+    "embedded-postgres": "18.6.0-beta.19",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "prisma": "7.10.1",
+    "supertest": "^7.3.1",
+    "vitest": "^4.1.12"
+  }
+}

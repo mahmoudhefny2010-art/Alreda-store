@@ -1,0 +1,31 @@
+<% const presentation = structuredClone(editing?.catalog_details?.presentation || {}); if (presentation.manageTypes && editing?.product_variants) { for (const type of presentation.types || []) { const matches = editing.product_variants.filter(variant => { try { return variant.source_id.startsWith('admin-type-' + editing.id + '-') && JSON.parse(variant.options).includes(type.en); } catch { return false; } }); type.stock = matches.reduce((sum, variant) => sum + (variant.stock_quantity || 0), 0); if (matches.length && type.priceEgp == null) type.priceEgp = matches[0].price_egp; } } %>
+<fieldset class="catalog-presentation" data-product-presentation data-type-options="<%= JSON.stringify(typeof typeOptions === 'undefined' ? [] : typeOptions) %>" data-locale="<%= locale %>">
+  <legend><%= locale === 'ar' ? 'عرض المنتج واختياراته' : 'Product display and options' %></legend>
+  <input type="hidden" name="presentation" data-presentation-value value="<%= JSON.stringify(presentation) %>">
+  <p class="presentation-intro"><%= locale === 'ar' ? '١. ارفع الصور في قسم صور المنتج. ٢. اختَر طريقة عرضها هنا. ٣. أضف الأنواع فقط لو المنتج له اختيارات مختلفة.' : '1. Upload the product gallery. 2. Choose how its photos appear below. 3. Add types only when this product has different options.' %></p>
+  <button class="button button-secondary presentation-upload" type="button" data-presentation-upload><%= locale === 'ar' ? 'رفع صور المنتج' : 'Upload product photos' %></button>
+  <div class="presentation-image-grid">
+    <% for (const key of ['hoverImage', 'mobileImage']) { const hover = key === 'hoverImage'; %>
+    <section class="presentation-image-card">
+      <h3><%= locale === 'ar' ? (hover ? 'صورة مرور الماوس' : 'صورة الموبايل') : (hover ? 'Desktop hover image' : 'Mobile card image') %></h3>
+      <p><%= locale === 'ar' ? (hover ? 'تظهر عند مرور الماوس على صورة الكارت، ثم تعود الصورة الأصلية.' : 'تظهر من أول مرة على الموبايل. اختَر صورة الطقم كاملًا لو المنتج طقم.') : (hover ? 'Appears while the pointer is over the card photo, then returns to the current photo.' : 'Appears immediately on touch devices. For sets, choose a photo showing the complete set.') %></p>
+      <div class="presentation-photo"><img data-presentation-preview="<%= key %>" alt="<%= locale === 'ar' ? 'معاينة الصورة المختارة' : 'Selected image preview' %>" hidden><span data-preview-empty="<%= key %>"><%= locale === 'ar' ? 'ارفع صور المنتج لتظهر المعاينة' : 'Upload product photos to see a preview' %></span></div>
+      <label><span class="sr-only"><%= locale === 'ar' ? (hover ? 'اختيار صورة مرور الماوس' : 'اختيار صورة الموبايل') : (hover ? 'Choose hover image' : 'Choose mobile image') %></span><select data-presentation-image="<%= key %>"></select></label>
+      <div class="presentation-photo-choices" data-image-choices="<%= key %>" role="group" aria-label="<%= locale === 'ar' ? 'صور المنتج المتاحة' : 'Available product photos' %>"></div>
+      <small><%= locale === 'ar' ? (hover ? 'تلقائي = الصورة الثانية، إن وُجدت.' : 'تلقائي = صورة الغلاف أو صورة الطقم المحددة في المعرض.') : (hover ? 'Automatic uses image 2, when available.' : 'Automatic uses the cover or an explicitly labeled full-set gallery photo.') %></small>
+    </section>
+    <% } %>
+  </div>
+  <section class="presentation-types">
+  <label class="admin-check presentation-type-toggle"><input type="checkbox" data-manage-types <%= presentation.manageTypes ? 'checked' : '' %>><span><strong><%= locale === 'ar' ? 'هذا المنتج له أنواع مختلفة' : 'This product has different types' %></strong><small><%= locale === 'ar' ? 'مثال: حامل مناشف مفرد، مزدوج، أو طقم كامل. اتركه مغلقًا لو الاختلاف في اللون فقط.' : 'For example: single towel holder, double holder, or complete set. Leave off for color-only differences.' %></small></span></label>
+  <div data-type-controls hidden>
+    <p class="catalog-color-help"><%= locale === 'ar' ? 'حدد سعرًا مستقلًا لكل نوع، مثل مفرد ٥٠٠ ومزدوج ٧٠٠ جنيه. السعر والصورة يتغيران عند اختيار النوع. لو حددت سعرًا خاصًا للون، يُستخدم سعر اللون بدل سعر النوع؛ اترك سعر اللون فارغًا لاستخدام سعر كل نوع.' : 'Set a separate price for each type, for example Single EGP 500 and Double EGP 700. Selecting a type updates its price and photo. A specific color price overrides the type price; leave color prices empty to use each type’s price.' %></p>
+    <div class="presentation-stock-note"><strong><%= locale === 'ar' ? 'المخزون في هذا الوضع يُؤخذ من الأنواع' : 'Type stock is used in this mode' %></strong><p><%= locale === 'ar' ? 'مخزون الألوان أعلاه لا يُستخدم. كمية كل نوع تتوزع بالتساوي على الألوان المختارة؛ مثلًا ٥ قطع ولونان = ٣ للأول و٢ للثاني. راجع التوزيع أدناه قبل الحفظ.' : 'The color stock fields above are ignored. Each type’s stock is divided evenly among selected colors: 5 units and 2 colors means 3 for the first and 2 for the second. Review the breakdown below before saving.' %></p></div>
+    <div class="catalog-type-add"><select data-type-preset aria-label="<%= locale === 'ar' ? 'النوع' : 'Type' %>"></select><button type="button" class="button button-secondary" data-add-type><%= locale === 'ar' ? 'إضافة نوع' : 'Add type' %></button></div>
+    <p class="presentation-empty" data-types-empty><%= locale === 'ar' ? 'لم تضف أنواعًا بعد. اختَر نوعًا أعلاه واضغط «إضافة نوع»، ثم حدد صورته وسعره وكميته.' : 'No types added yet. Choose a type above and click Add type, then set its photo, price and quantity.' %></p>
+    <div data-type-rows class="catalog-type-rows"></div>
+    <p class="presentation-summary" data-types-summary role="status" aria-live="polite"></p>
+    <details class="presentation-advanced"><summary><%= locale === 'ar' ? 'ماذا يحدث للاختيارات الحالية عند الحفظ؟' : 'What happens to existing options when I save?' %></summary><p><%= locale === 'ar' ? 'الأنواع المضافة هنا تصبح الاختيارات النشطة. تُحفَظ الاختيارات القديمة لسجل الطلبات ولا تُحذف. الألوان فقط تظهر على الكروت؛ الأنواع تظهر داخل صفحة المنتج.' : 'These types become the active options. Old variants are retained for order history. Cards show color swatches; type choices appear inside the product page.' %></p></details>
+  </div>
+  </section>
+</fieldset>

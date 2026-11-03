@@ -1,0 +1,24 @@
+<%- include('../partials/head') %>
+<body class="admin-body admin-workspace">
+  <a class="skip-link" href="#main"><%= t('skip') %></a>
+  <% const permissions = typeof adminPermissions !== 'undefined' ? adminPermissions : []; const current = typeof adminPath !== 'undefined' ? adminPath : ''; %>
+  <aside class="admin-sidebar">
+    <a class="admin-brand" href="/admin" aria-label="<%= a('workspace') %>"><span class="admin-brand-icon" aria-hidden="true">A</span><span>ALREDA<small>STORE</small></span></a>
+    <p class="sidebar-label"><%= a('workspace') %></p>
+    <nav aria-label="<%= a('workspace') %>">
+      <a class="<%= current === '/admin' ? 'sidebar-active' : '' %>" href="/admin"><span aria-hidden="true">⌂</span><%= a('dashboard') %></a>
+      <% if (permissions.includes('orders')) { %><a class="<%= current.startsWith('/admin/orders') ? 'sidebar-active' : '' %>" href="/admin/orders"><span aria-hidden="true">▤</span><%= a('orders') %></a><% } %>
+      <% if (permissions.includes('catalog')) { %><a class="<%= current.startsWith('/admin/catalog') ? 'sidebar-active' : '' %>" href="/admin/catalog"><span aria-hidden="true">▦</span><%= a('catalog') %></a><a class="<%= current.startsWith('/admin/catalog/homepage') ? 'sidebar-active' : '' %>" href="/admin/catalog/homepage"><span aria-hidden="true">&#8597;</span><%= a('homepageCollections') %></a><a class="<%= current.startsWith('/admin/promotions') ? 'sidebar-active' : '' %>" href="/admin/promotions"><span aria-hidden="true">%</span><%= a('discounts') %></a><% } %>
+      <% if (permissions.includes('roles')) { %><a class="<%= current.startsWith('/admin/access') ? 'sidebar-active' : '' %>" href="/admin/access"><span aria-hidden="true">♙</span><%= a('roles') %></a><% } %>
+      <% if (permissions.includes('orders')) { %><a class="<%= current.startsWith('/admin/delivery') ? 'sidebar-active' : '' %>" href="/admin/delivery"><span aria-hidden="true">&#8594;</span><%= a('delivery') %></a><a class="<%= current.startsWith('/admin/notifications') ? 'sidebar-active' : '' %>" href="/admin/notifications"><span aria-hidden="true">◉</span><%= a('notifications') %></a><% } %>
+      <a href="/"><span aria-hidden="true">↗</span><%= a('storefront') %></a>
+    </nav>
+    <div class="admin-sidebar-account"><span class="admin-account-mark" aria-hidden="true">●</span><span><%= typeof customer !== 'undefined' && customer ? customer.name : a('admin') %><small><%= a('admin') %></small></span></div>
+  </aside>
+  <div class="admin-main"><header class="admin-topbar"><div><span class="admin-topbar-kicker"><%= a('workspace') %></span><strong><%= title %></strong></div>
+    <form action="/language" method="post" class="admin-language"><input type="hidden" name="returnTo" value="<%= adminPath || '/admin' %>"><label class="sr-only" for="admin-language"><%= t('language') %></label><select id="admin-language" name="locale"><option value="en" <%= locale === 'en' ? 'selected' : '' %>>English</option><option value="ar" <%= locale === 'ar' ? 'selected' : '' %>>العربية</option></select><button type="submit"><%= locale === 'ar' ? 'تطبيق اللغة' : 'Apply language' %></button></form>
+    <% if (current === '/admin/delivery') { %><button class="button" type="submit" form="delivery-settings-form"><%= locale === 'ar' ? 'حفظ أسعار التوصيل' : 'Save delivery prices' %></button><% } %>
+    <a class="admin-topbar-store" href="/"><%= a('storefront') %> <span aria-hidden="true">↗</span></a>
+  </header><main id="main" class="admin-content"><%- include(contentView) %></main><footer class="admin-footer"><span>ALREDA STORE</span><span><%= permissions.includes('orders') ? 'Database-backed orders · ' : '' %><%= a('title') %> · <%= a('admin') %></span></footer></div>
+</body>
+</html>
