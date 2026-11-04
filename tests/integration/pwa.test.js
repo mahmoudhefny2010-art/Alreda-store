@@ -12,5 +12,8 @@ describe('installable storefront shell', () => {
     expect(worker.text).toContain("url.pathname.startsWith('/checkout')");
     const oneSignal = await request(app).get('/onesignal/OneSignalSDKWorker.js').expect(200);
     expect(oneSignal.headers['service-worker-allowed']).toBe('/onesignal/');
+    const legacyOneSignal = await request(app).get('/OneSignalSDKWorker.js?appId=local-test').expect(200);
+    expect(legacyOneSignal.headers['service-worker-allowed']).toBe('/onesignal/');
+    expect(legacyOneSignal.headers['cache-control']).toMatch(/no-cache/);
   });
 });

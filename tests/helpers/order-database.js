@@ -66,6 +66,15 @@ async function startOrderDatabase() {
     if (!lifecycleTable.rows[0].table_name) throw new Error('PRODUCT_LIFECYCLE_MIGRATION_FAILED');
     await sql.query(fs.readFileSync(path.join(__dirname, '../../prisma/proposed/product-lifecycle.rollback.sql'), 'utf8'));
     await sql.query(lifecycleMigration);
+    const favoritesMigration = fs.readFileSync(path.join(__dirname, '../../prisma/migrations/20261104150000_customer_favorites/migration.sql'), 'utf8');
+    const favoritesRollback = fs.readFileSync(path.join(__dirname, '../../prisma/proposed/customer-favorites.rollback.sql'), 'utf8');
+    await sql.query(favoritesMigration);
+    const favoritesTable = await sql.query("SELECT to_regclass('public.customer_favorites') AS table_name");
+    if (!favoritesTable.rows[0].table_name) throw new Error('CUSTOMER_FAVORITES_MIGRATION_FAILED');
+    await sql.query(favoritesRollback);
+    const rolledBackFavorites = await sql.query("SELECT to_regclass('public.customer_favorites') AS table_name");
+    if (rolledBackFavorites.rows[0].table_name) throw new Error('CUSTOMER_FAVORITES_ROLLBACK_FAILED');
+    await sql.query(favoritesMigration);
     client = createPrismaClient({ enabled: true, url: `postgresql://order_test:${password}@127.0.0.1:${port}/postgres`, poolMax: 8, connectTimeoutMs: 10000 });
     return { client, sql, down, async stop() {
       await client.$disconnect(); await sql.end(); await postgres.stop();

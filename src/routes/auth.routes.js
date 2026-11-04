@@ -28,6 +28,9 @@ function sameOrigin(req) {
     return developmentAlias || fetchSite === 'same-origin';
   } catch { return false; }
 }
+function logoutCsrfToken(sessionToken, secret) {
+  return sessionToken && secret ? createHmac('sha256', secret).update(`logout:${sessionToken}`).digest('hex') : '';
+}
 function createAuthRateLimiter({ clock = Date.now, repository, secret = '', windowMs = 10 * 60 * 1000 } = {}) {
   let checks = 0;
   return async (req, res, next) => {
@@ -107,9 +110,13 @@ function createAuthRoutes({ config = readAuthConfig(), repository = createCustom
       return res.redirect(303, '/?auth=failed');
     }
   });
-  router.post('/auth/logout', async (req, res) => {
+  router.post('/auth/logout', require('express').urlencoded({ extended: false, limit: '16kb' }), async (req, res, next) => {
     res.set('Cache-Control', 'no-store');
-    if (!sameOrigin(req)) return res.status(403).send('Request origin rejected.');
+    const fetchSite = req.get('sec-fetch-site');
+    const submitted = typeof req.body?._csrf === 'string' ? req.body._csrf : '';
+    const expected = logoutCsrfToken(req.customerSessionToken, config.sessionSecret);
+    const csrfValid = /^[a-f0-9]{64}$/i.test(submitted) && secureEqual(submitted, expected);
+    if (fetchSite === 'cross-site' || (!sameOrigin(req) && !csrfValid)) return next(Object.assign(new Error('REQUEST_ORIGIN_REJECTED'), { status: 403 }));
     const token = readCookie(req.get('cookie'), sessionName);
     if (token) {
       try { await repository.deleteSession(token); }
@@ -125,4 +132,4 @@ function createAuthRoutes({ config = readAuthConfig(), repository = createCustom
   return router;
 }
 
-module.exports = { createAuthRoutes, safeReturn, sameOrigin, createAuthRateLimiter };
+module.exports = { createAuthRoutes, safeReturn, sameOrigin, createAuthRateLimiter, logoutCsrfToken };

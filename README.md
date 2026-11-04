@@ -32,4 +32,12 @@ Browser tests use installed Google Chrome and start their own server on port 310
 
 See [Neon/Prisma verification and Northflank deployment](docs/neon-prisma.md) for database commands, migration ownership and deployment requirements.
 
+## Vercel
+
+The root `app.js` exports the existing Express application without a listener or timers. `npm run build` generates Prisma Client and copies public runtime assets to Vercel's CDN `public/assets/` paths; EJS views and catalog JSON are explicitly included in the function. Local development still uses `src/server.js`.
+
+Set secrets in the appropriate Vercel environment, not in uploaded `.env` files. Preview tests require a separate test database; a display-only Preview can use `DATABASE_REQUIRED=false`, no database URL, `CHECKOUT_ENABLED=false`, and `INSTAPAY_ENABLED=false`. Keep Google and OneSignal disabled there until test credentials and HTTPS origins are configured. Runtime Neon connections should use the pooled URL and a conservative `DATABASE_POOL_MAX`; `DIRECT_URL` is for reviewed migration commands only. Build never applies migrations.
+
+Background work is exposed through authenticated `GET /api/jobs/run` with `CRON_SECRET`. The configured cron checks daily at 07:00 UTC (Hobby invocation can occur within that hour); reminders therefore run daily rather than exactly two hours after abandonment. Cron runs only on Production deployments. Hobby is for non-commercial personal use, so live store transactions require a permitted plan. Current production blockers also include uploads larger than Vercel's request limit, the durable local media journal, outside-area delivery quotations and the unimplemented analytics/Excel features; a display-only Preview does not verify those flows.
+
 See [architecture](docs/architecture.md), [database design](docs/database.md), [routes](docs/routes.md), [design system](docs/design-system.md), [Cloudinary media setup](docs/cloudinary-media.md), [delivery and notifications](docs/delivery-and-push.md), and [InstaPay review](docs/instapay.md).

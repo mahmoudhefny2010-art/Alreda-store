@@ -7,7 +7,7 @@ const { createNotificationRoutes } = require('../../src/routes/notification.rout
 const { createApp } = require('../../src/app');
 const source = fs.readFileSync(path.resolve(__dirname, '../../src/public/js/onesignal-client.js'), 'utf8');
 
-function client(hostname = '127.0.0.1') {
+function client(hostname = '127.0.0.1', timers = { setTimeout: () => 1, clearTimeout: vi.fn() }) {
   const events = {};
   const status = { textContent: '' };
   const button = { addEventListener: (name, fn) => { events[name] = fn; } };
@@ -19,7 +19,7 @@ function client(hostname = '127.0.0.1') {
   const append = vi.fn();
   const document = { currentScript: { dataset: { appId: 'test-app', userId: 'test-user', testSentLabel: 'Accepted', testErrorLabel: 'Test failed' } },
     querySelector: selector => elements[selector], createElement: () => ({}), head: { append } };
-  vm.runInNewContext(source, { document, window, navigator: { serviceWorker: {} }, fetch, AbortSignal, Event, setTimeout: () => 1, clearTimeout: vi.fn() });
+  vm.runInNewContext(source, { document, window, navigator: { serviceWorker: {} }, fetch, AbortSignal, Event, ...timers });
   let changed;
   const subscription = { id: null, optedIn: true, optIn: vi.fn(), addEventListener: (name, fn) => { changed = fn; } };
   const sdk = { init: vi.fn(), login: vi.fn(), Notifications: { permission: true, isPushSupported: () => true }, User: { PushSubscription: subscription } };
@@ -27,6 +27,24 @@ function client(hostname = '127.0.0.1') {
 }
 
 describe('push connection lifecycle', () => {
+  it.each(['init', 'login'])('bounds a stalled SDK %s and allows account retry', async phase => {
+    vi.useFakeTimers();
+    try {
+      const c = client('127.0.0.1', { setTimeout, clearTimeout });
+      let release;
+      c.sdk[phase].mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+      const connection = c.init();
+      await vi.advanceTimersByTimeAsync(12000);
+      await connection;
+      expect(c.window.AlredaNotifications.state).toBe('unavailable');
+      expect(c.window.AlredaNotifications.errorCode).toBe(phase === 'init' ? 'SDK_INIT_FAILED' : 'ACCOUNT_CONNECTION_FAILED');
+      expect(c.fetch).not.toHaveBeenCalled();
+      release();
+      await c.events.click();
+      expect(c.window.AlredaNotifications.state).toBe('ready');
+      expect(c.sdk.init).toHaveBeenCalledTimes(1);
+    } finally { vi.useRealTimers(); }
+  });
   it.each(['127.0.0.1', 'localhost', 'store.example'])('sets the localhost exception only for loopback (%s)', async hostname => {
     const c = client(hostname); await c.init();
     expect(c.sdk.init).toHaveBeenCalledWith(expect.objectContaining({ allowLocalhostAsSecureOrigin: hostname !== 'store.example', serviceWorkerParam: { scope: '/onesignal/' } }));
@@ -89,8 +107,12 @@ describe('push connection lifecycle', () => {
   it('allows the API JSONP configuration script and serves a separate worker scope', async () => {
     const app = createApp({ authSettings: { ONESIGNAL_APP_ID: 'test-app' } });
     const response = await request(app).get('/onesignal/OneSignalSDKWorker.js').expect(200);
+    const legacyPath = await request(app).get('/OneSignalSDKWorker.js?appId=test-app').expect(200);
     expect(response.headers['content-security-policy']).toMatch(/script-src 'self' https:\/\/cdn.onesignal.com https:\/\/api.onesignal.com;/);
+    expect(response.headers['content-security-policy']).toMatch(/connect-src 'self' https:\/\/onesignal.com https:\/\/api.onesignal.com https:\/\/cdn.onesignal.com;/);
     expect(response.headers['service-worker-allowed']).toBe('/onesignal/');
+    expect(legacyPath.headers['service-worker-allowed']).toBe('/onesignal/');
+    expect(legacyPath.headers['cache-control']).toMatch(/no-cache/);
   });
 });
 

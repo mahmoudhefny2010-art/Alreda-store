@@ -247,6 +247,7 @@ model products {
   product_images  product_images[]
   cart_items      cart_items[]
   product_categories product_categories[]
+  customer_favorites customer_favorites[]
   catalog_details   catalog_details?
   categories      categories?       @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "products_category_id_foreign")
 
@@ -476,8 +477,20 @@ model users {
   notification_preferences                notification_preferences?
   notification_outbox                     notification_outbox[]
   cart_reminders                          cart_reminders[]
+  customer_favorites                      customer_favorites[]
 
   @@index([role, is_active], map: "users_role_active_idx")
+}
+
+model customer_favorites {
+  user_id    String   @db.Uuid
+  product_id String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products   products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, product_id], map: "customer_favorites_pk")
+  @@index([user_id, created_at], map: "customer_favorites_user_created_idx")
 }
 
 model payment_proofs {

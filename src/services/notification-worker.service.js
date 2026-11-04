@@ -16,10 +16,11 @@ function deliveryFailureCode(error) {
   if (/^P\d{4}$/.test(error?.code || '')) return 'DATABASE_ERROR';
   return 'DELIVERY_FAILED';
 }
-function createNotificationWorker({ clientProvider = getPrismaClient, provider = createOneSignalService(), logger = console, clock = () => new Date(), abandonedAfterMinutes = defaultReminderMinutes } = {}) {
+function createNotificationWorker({ clientProvider = getPrismaClient, provider = createOneSignalService(), logger = console, clock = () => new Date(), abandonedAfterMinutes = defaultReminderMinutes,
+  batchSize = 20, reminderBatchSize = 100, maxRunMs = Infinity, elapsedClock = Date.now } = {}) {
   const db = () => clientProvider();
   let running = false;
-  async function scheduleAbandonedCarts() {
+  async function scheduleAbandonedCarts(deadline = Infinity) {
     const template = await db().site_settings.findUnique({ where: { setting_key: 'push_template:ABANDONED_CART' } });
     if (template && !templateSchema.parse(JSON.parse(template.value_en)).enabled) return;
     let reminderMinutes = abandonedAfterMinutes;
@@ -30,8 +31,9 @@ function createNotificationWorker({ clientProvider = getPrismaClient, provider =
     } catch { /* The documented environment default remains available if settings cannot be read. */ }
     const before = new Date(clock().getTime() - reminderMinutes * 60000);
     const carts = await db().shopping_carts.findMany({ where: { status: 'ACTIVE', user_id: { not: null }, updated_at: { lte: before }, cart_items: { some: {} }, cart_reminder: null,
-      users: { is_active: true, notification_preferences: { is: { marketing_enabled: true } } } }, select: { id: true, user_id: true, updated_at: true }, take: 100, orderBy: { updated_at: 'asc' } });
+      users: { is_active: true, notification_preferences: { is: { marketing_enabled: true } } } }, select: { id: true, user_id: true, updated_at: true }, take: reminderBatchSize, orderBy: { updated_at: 'asc' } });
     for (const cart of carts) {
+      if (elapsedClock() >= deadline) break;
       try {
         await db().$transaction(async tx => {
           const reminder = await tx.cart_reminders.create({ data: { cart_id: cart.id, user_id: cart.user_id, run_after: clock() }, select: { id: true } });
@@ -88,10 +90,16 @@ function createNotificationWorker({ clientProvider = getPrismaClient, provider =
     return true;
   }
   async function runOnce() {
-    if (running || !provider.enabled) return;
+    if (running || !provider.enabled) return { processed: 0, skipped: true };
     running = true;
-    try { await scheduleAbandonedCarts(); for (let i = 0; i < 20 && await processOne(); i++); }
-    catch { logger.error({ event: 'notification_worker_failed', code: 'WORKER_ERROR' }); }
+    let processed = 0;
+    const deadline = elapsedClock() + maxRunMs;
+    try {
+      await scheduleAbandonedCarts(deadline);
+      while (processed < batchSize && elapsedClock() < deadline && await processOne()) processed++;
+      return { processed, skipped: false };
+    }
+    catch { logger.error({ event: 'notification_worker_failed', code: 'WORKER_ERROR' }); return { processed, failed: true }; }
     finally { running = false; }
   }
   function start(intervalMs = 30000) { const timer = setInterval(() => { runOnce().catch(() => {}); }, intervalMs); timer.unref(); runOnce().catch(() => {}); return () => clearInterval(timer); }

@@ -8,6 +8,7 @@
     <section class="product-information" aria-labelledby="product-title">
       <% if (product.vendor) { %><p class="product-vendor"><%= product.vendor %></p><% } %>
       <h1 id="product-title"><%= product.name %></h1>
+      <% if (product.id) { %><button class="favorite-toggle favorite-toggle--detail" type="button" data-favorite-toggle data-product-id="<%= product.id %>" data-product-name="<%= product.name %>" data-save-label="<%= t('saveFavorite') %>" data-remove-label="<%= t('removeFavorite') %>" data-added-message="<%= t('favoriteAdded') %>" data-removed-message="<%= t('favoriteRemoved') %>" aria-pressed="false" aria-label="<%= t('saveFavorite') %>"><%- include('../partials/icon', { name: 'heart' }) %><span><%= t('saveFavorite') %></span></button><% } %>
       <div class="detail-price-row" aria-live="polite"><span class="detail-price" data-variant-price><%= product.selectedVariant.currentFormatted %></span><del data-variant-compare <% if (!product.selectedVariant.compareAtFormatted) { %>hidden<% } %>><%= product.selectedVariant.compareAtFormatted %></del><span class="detail-sale" data-variant-sale <% if (!product.selectedVariant.compareAtFormatted) { %>hidden<% } %>><%= t('sale') %></span></div>
       <p class="price-context" data-variant-availability><%= product.selectedVariant.availabilityLabel %></p>
       <form class="variant-fallback" method="get" action="<%= product.href %>">

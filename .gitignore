@@ -1,4 +1,6 @@
 node_modules/
+.vercel/
+/public/
 .npm-cache/
 .env
 .env.*
@@ -46,3 +48,6 @@ alreda-store-lightweight.zip
 alreda-store-verification-screenshots/
 docs/screenshots/
 design-qa.md
+
+.vercel
+.env*

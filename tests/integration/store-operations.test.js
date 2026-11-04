@@ -107,9 +107,9 @@ it('distinguishes delivery storage failure from intentionally unconfigured deliv
   const application = repository => createApp({ environment: 'test', authSettings: {}, logger: { error: () => {} }, orders: {
     repository, policy: { enabled: true, origin: 'http://store.test', shippingRates: {} }, authenticate: () => ({ userId: customer.id }) } });
   const missing = await request(application({ ...orders, shippingRates: async () => ({ rates: {}, labels: {} }) })).get('/checkout').expect(503);
-  expect(missing.text).toContain('There are no enabled delivery areas'); expect(missing.text).not.toContain('href="/admin/delivery"');
+  expect(missing.text).toContain('Delivery is currently unavailable. Please contact us.'); expect(missing.text).not.toContain('href="/admin/delivery"');
   const unavailable = await request(application({ ...orders, shippingRates: async () => { throw new Error('private database error'); } })).get('/checkout').expect(503);
-  expect(unavailable.text).toContain('Saved delivery prices could not be loaded'); expect(unavailable.text).not.toContain('private database error');
+  expect(unavailable.text).toContain('Delivery is temporarily unavailable. Please try again.'); expect(unavailable.text).not.toContain('private database error');
 });
 
 it('reconciles product totals from known variant quantities with mandatory backup and no variant changes', async () => {

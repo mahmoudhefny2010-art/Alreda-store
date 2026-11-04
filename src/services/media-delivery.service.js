@@ -2,15 +2,17 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { z } = require('zod');
 const { readCloudinaryConfig } = require('../config/cloudinary');
-const { createCloudinaryService } = require('./cloudinary.service');
+const { createCloudinaryService, profiles } = require('./cloudinary.service');
 const { assertManagedPublicId } = require('../utils/mediaPath');
 const recordSchema = z.object({ publicId: z.string(), assetId: z.string().min(1), secureUrl: z.url(), version: z.number().int().positive(),
   resourceType: z.literal('image'), width: z.number().int().positive(), height: z.number().int().positive() }).passthrough();
 const manifestSchema = z.object({ schemaVersion: z.literal(1), cloudName: z.string(), rootFolder: z.string(), assets: z.record(z.string(), recordSchema) });
 function createMediaDelivery({ source = process.env, manifest: suppliedManifest } = {}) {
   const config = readCloudinaryConfig(source);
+  const publicOnly = !config.enabled && source.MEDIA_PUBLIC_MANIFEST === 'true';
+  let deliveryCloud = config.cloudName;
   let assets = {};
-  if (config.enabled) {
+  if (config.enabled || publicOnly) {
     let candidate = suppliedManifest;
     if (!candidate) {
       try { candidate = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../config/cloudinary-media.json'), 'utf8')); }
@@ -18,30 +20,38 @@ function createMediaDelivery({ source = process.env, manifest: suppliedManifest 
     }
     if (candidate) {
       const result = manifestSchema.safeParse(candidate);
-      if (!result.success || result.data.cloudName !== config.cloudName || result.data.rootFolder !== config.rootFolder) throw new Error('Invalid Cloudinary media manifest');
+      if (!result.success || !/^[a-zA-Z0-9_-]{1,100}$/.test(result.data.cloudName) || config.enabled && result.data.cloudName !== config.cloudName || result.data.rootFolder !== config.rootFolder) throw new Error('Invalid Cloudinary media manifest');
+      deliveryCloud = result.data.cloudName;
       assets = result.data.assets;
       for (const record of Object.values(assets)) {
         assertManagedPublicId(record.publicId, config.rootFolder);
         const url = new URL(record.secureUrl);
-        if (url.origin !== 'https://res.cloudinary.com' || !url.pathname.startsWith(`/${config.cloudName}/image/upload/`)) throw new Error('Invalid Cloudinary media manifest');
+        if (url.origin !== 'https://res.cloudinary.com' || !url.pathname.startsWith(`/${deliveryCloud}/image/upload/`)) throw new Error('Invalid Cloudinary media manifest');
       }
     }
   }
   const service = createCloudinaryService({ config, client: require('cloudinary').v2 });
-  const assetUrl = (key, fallback, profile = 'product-card') => assets[key] ? service.getOptimizedImageUrl(assets[key], profile) : fallback;
+  // Public delivery requires no API key. Upload/delete services remain disabled.
+  const deliveryUrl = (asset, profile) => {
+    if (!publicOnly) return service.getOptimizedImageUrl(asset, profile);
+    if (!Object.hasOwn(profiles, profile)) throw new Error('Invalid media profile');
+    return require('cloudinary').v2.url(asset.publicId, { cloud_name: deliveryCloud, secure: true, resource_type: 'image', type: 'upload', sign_url: false,
+      version: asset.version, width: profiles[profile], crop: 'limit', quality: 'auto', fetch_format: 'auto' });
+  };
+  const assetUrl = (key, fallback, profile = 'product-card') => assets[key] ? deliveryUrl(assets[key], profile) : fallback;
   function applyCatalog(catalog) {
     return { ...catalog, products: catalog.products.map(product => ({ ...product,
       gallery: product.gallery.map(image => {
         const asset = assets[`product:${product.sourceId}:${image.sourceId}`];
         if (!asset) return image;
-        const cardSrc = service.getOptimizedImageUrl(asset, 'product-card');
-        const displaySrc = service.getOptimizedImageUrl(asset, 'product-detail');
-        return { ...image, cloudinary: asset, src: asset.secureUrl, cardSrc, displaySrc, thumbSrc: service.getOptimizedImageUrl(asset, 'thumbnail'),
+        const cardSrc = deliveryUrl(asset, 'product-card');
+        const displaySrc = deliveryUrl(asset, 'product-detail');
+        return { ...image, cloudinary: asset, src: asset.secureUrl, cardSrc, displaySrc, thumbSrc: deliveryUrl(asset, 'thumbnail'),
           srcSet: asset.width > 640 ? `${cardSrc} 640w, ${displaySrc} ${Math.min(asset.width, 1200)}w` : `${displaySrc} ${asset.width}w` };
       }),
     })), collections: catalog.collections.map(category => ({ ...category,
       image: assetUrl(`collection:${category.sourceId}`, category.image, 'category-card') })) };
   }
-  return { assetUrl, applyCatalog, cloudName: config.enabled ? config.cloudName : null };
+  return { assetUrl, applyCatalog, cloudName: config.enabled || publicOnly ? deliveryCloud : null };
 }
 module.exports = { createMediaDelivery };

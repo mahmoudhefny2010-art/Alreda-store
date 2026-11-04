@@ -97,7 +97,8 @@
   .related-products { margin-block-start: 44px; }
   .related-heading { align-items: flex-start; }
   .related-heading h2 { font-size: 24px; }
-  .related-products .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .related-products .product-grid { display: flex; gap: 14px; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x mandatory; scrollbar-width: thin; padding: 2px 2px 12px; }
+  .related-products .product-grid > .product-card { flex: 0 0 min(82vw, 280px); min-width: 0; scroll-snap-align: start; }
+  .related-products .product-card select { width: 100%; min-width: 0; min-height: 44px; }
   .product-description td, .product-description th, .product-specifications td, .product-specifications th { padding: 10px; }
 }
-@media (max-width: 359px) { .related-products .product-grid { grid-template-columns: 1fr; } }

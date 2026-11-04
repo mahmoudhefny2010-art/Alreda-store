@@ -6,6 +6,7 @@
   let OneSignal;
   let sdkInstance;
   let initialized = false;
+  let initialization;
   let connecting = false;
   let sdkScript;
   let busy = false;
@@ -137,6 +138,14 @@
   });
   let timeout;
   window.OneSignalDeferred = window.OneSignalDeferred || [];
+  async function boundedConnection(operation) {
+    let deadline;
+    try {
+      return await Promise.race([operation, new Promise((resolve, reject) => {
+        deadline = setTimeout(() => reject(new Error('CONNECTION_TIMED_OUT')), 12000);
+      })]);
+    } finally { clearTimeout(deadline); }
+  }
   async function connect(sdk) {
     if (connecting) return;
     connecting = true;
@@ -145,8 +154,10 @@
     let phase = 'SDK_INIT_FAILED';
     try {
       if (!initialized) {
-        await sdk.init({ appId, allowLocalhostAsSecureOrigin: ['localhost', '127.0.0.1', '[::1]'].includes(window.location?.hostname), serviceWorkerPath: '/onesignal/OneSignalSDKWorker.js', serviceWorkerParam: { scope: '/onesignal/' },
-          notifyButton: { enable: false }, promptOptions: { slidedown: { prompts: [{ type: 'push', autoPrompt: false }] } } });
+        // Reuse an in-flight initialization on retry: the SDK must only initialize once.
+        if (!initialization) initialization = Promise.resolve(sdk.init({ appId, allowLocalhostAsSecureOrigin: ['localhost', '127.0.0.1', '[::1]'].includes(window.location?.hostname), serviceWorkerPath: '/onesignal/OneSignalSDKWorker.js', serviceWorkerParam: { scope: '/onesignal/' },
+          notifyButton: { enable: false }, promptOptions: { slidedown: { prompts: [{ type: 'push', autoPrompt: false }] } } })).catch(error => { initialization = null; throw error; });
+        await boundedConnection(initialization);
         initialized = true;
         // Install the listener early, but persist only after account login completes.
         sdk.User.PushSubscription.addEventListener?.('change', () => {
@@ -154,7 +165,7 @@
         });
       }
       phase = 'ACCOUNT_CONNECTION_FAILED';
-      await sdk.login(userId); OneSignal = sdk; clearTimeout(timeout);
+      await boundedConnection(sdk.login(userId)); OneSignal = sdk; clearTimeout(timeout);
       publish(window.Notification?.permission === 'denied' ? 'blocked' : 'ready');
       phase = 'SUBSCRIPTION_SAVE_FAILED';
       if (sdk.Notifications.permission && sdk.User.PushSubscription.optedIn !== false && sdk.User.PushSubscription.id) await registerSubscription(sdk.User.PushSubscription.id);

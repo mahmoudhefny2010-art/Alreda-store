@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="/assets/images/pwa/icon-192.png">
   <link rel="icon" type="image/jpeg" href="<%= typeof mediaAsset === 'function' ? mediaAsset('branding:logo', '/assets/images/alreda-delight-logo.jpg', 'thumbnail') : '/assets/images/alreda-delight-logo.jpg' %>">
   <title><%= title %> | <%= t('storeName') %></title>
-  <link rel="stylesheet" href="/assets/css/main.css?v=push-connect-20261103-1">
+  <link rel="stylesheet" href="/assets/css/main.css?v=footer-navigation-20261104-2">
   <% if (typeof adminPath !== 'undefined' && adminPath.startsWith('/admin')) { %>
   <link rel="stylesheet" href="/assets/css/pages/admin-workspace.css?v=delivery-sync-20261103-1">
   <link rel="stylesheet" href="/assets/css/pages/admin-management.css?v=direct-offer-search-20261103-1">
@@ -20,11 +20,11 @@
   <link rel="stylesheet" href="/assets/css/pages/orders-admin.css?v=notifications-layout-20261102-1">
   <link rel="stylesheet" href="/assets/css/pages/homepage-layout.css?v=homepage-order-20261103-2">
   <% } %>
-  <link rel="stylesheet" href="/assets/css/components/whatsapp-button.css?v=rtl-20261102-1">
+  <link rel="stylesheet" href="/assets/css/components/whatsapp-button.css?v=footer-navigation-20261104-2">
   <link rel="stylesheet" href="/assets/css/pages/product-details.css?v=stock-labels-20261103-1">
   <link rel="stylesheet" href="/assets/css/components/visit-ui.css?v=white-loader-20261102-1">
   <script src="/assets/js/page-loading.js?v=visit-20261102-1"></script>
-  <script src="/assets/js/main.js" defer></script>
+  <script src="/assets/js/main.js?v=footer-navigation-20261104-2" defer></script>
   <link rel="stylesheet" href="/assets/css/components/cart.css?v=inline-bag-20261103-1">
   <% if (typeof adminPath !== 'undefined' && adminPath.startsWith('/admin/catalog')) { %><script src="/assets/js/admin-catalog.js?v=color-offers-20261103-2" defer></script><script src="/assets/js/admin-presentation.js?v=type-prices-20261103-1" defer></script><script src="/assets/js/admin-variant-editor.js?v=variant-matrix-20261103-1" defer></script><script src="/assets/js/admin-translation.js?v=product-options-20261103-1" defer></script><% } %>
   <% if (typeof adminPath !== 'undefined' && adminPath.startsWith('/admin/promotions')) { %><script src="/assets/js/admin-management.js?v=direct-offer-search-20261103-1" defer></script><script src="/assets/js/admin-translation.js?v=discount-translation-20261103-1" defer></script><% } %>

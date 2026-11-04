@@ -6,8 +6,8 @@
   const list = dialog.querySelector('[data-cart-items]');
   const status = dialog.querySelector('[data-cart-status]');
   const total = dialog.querySelector('[data-cart-total]');
-  const bagButton = document.querySelector('[data-dialog="bag-dialog"]');
-  const badge = document.querySelector('[data-cart-count]');
+  const bagButtons = [...document.querySelectorAll('[data-dialog="bag-dialog"]')];
+  const badges = [...document.querySelectorAll('[data-cart-count]')];
   const feedback = document.querySelector('[data-cart-feedback]');
   let feedbackTimer;
   let revision = 0;
@@ -73,10 +73,8 @@
       });
       details.append(name, quantity, remove); row.append(photo, details, lineTotal); list.append(row);
     }
-    if (badge) {
-      badge.textContent = count > 99 ? '99+' : String(count); badge.hidden = count === 0;
-      bagButton?.setAttribute('aria-label', count ? `${bagButton.dataset.bagLabel}: ${new Intl.NumberFormat(locale).format(count)}` : bagButton.dataset.bagLabel);
-    }
+    badges.forEach(badge => { badge.textContent = count > 99 ? '99+' : String(count); badge.hidden = count === 0; });
+    bagButtons.forEach(bagButton => bagButton.setAttribute('aria-label', count ? `${bagButton.dataset.bagLabel}: ${new Intl.NumberFormat(locale).format(count)}` : bagButton.dataset.bagLabel));
     status.textContent = cart.cart_items?.length ? '' : dialog.dataset.emptyText;
     total.replaceChildren();
     if (count) { const label = document.createElement('span'); label.textContent = dialog.dataset.totalText; const amount = document.createElement('strong'); amount.textContent = price(subtotal); total.append(label, amount); }
@@ -111,8 +109,8 @@
     });
   });
 
-  bagButton?.addEventListener('click', refresh);
+  bagButtons.forEach(bagButton => bagButton.addEventListener('click', refresh));
   document.addEventListener('cart:refresh', refresh);
-  if (badge) refresh();
-  window.addEventListener('pageshow', event => { if (event.persisted && badge) refresh(); });
+  if (badges.length) refresh();
+  window.addEventListener('pageshow', event => { if (event.persisted && badges.length) refresh(); });
 })();

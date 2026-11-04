@@ -13,8 +13,10 @@ let stopNotificationWorker = null;
 let stopCloudinaryCleanupWorker = null;
 server.once('listening', () => {
   console.info(`Alreda Store available at http://${environment.HOST}:${environment.PORT}`);
-  stopNotificationWorker = createNotificationWorker().start();
-  stopCloudinaryCleanupWorker = createCloudinaryCleanupWorker().start();
+  if (environment.NODE_ENV !== 'test') {
+    stopNotificationWorker = createNotificationWorker().start();
+    stopCloudinaryCleanupWorker = createCloudinaryCleanupWorker().start();
+  }
 });
 server.on('error', async error => {
   if (error.code === 'EADDRINUSE') {
