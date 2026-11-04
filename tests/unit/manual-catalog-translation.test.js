@@ -9,6 +9,10 @@ const original = (descriptionHtml = '<p>طفاية عمود مدور استال�
 const blocks = html => (html.match(/<(?:p|li|th|td|table|h3|h4)(?:\s|>)/g) || []).length;
 
 describe('manually authored catalog translations', () => {
+  it('removes unsafe markup using the supported CommonJS parser', () => {
+    expect(sanitize('<script>alert(1)</script><p onclick="alert(1)">Safe</p>'))
+      .toBe('<p>Safe</p>');
+  });
   it('translates source text without contacting any external provider and preserves safe structure', () => {
     const network = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('External calls forbidden'));
     expect(translateDescription('<h2>تفاصيل المنتج</h2><p>سعة 25 لتر.</p><script>bad()</script>', 'en'))
