@@ -27,15 +27,19 @@ function createOrderRoutes({ authenticate, repository = createOrderRepository(),
   const checkout = createCheckoutController({ service, repository, cartRepository, instapay });
   const admin = createAdminOrdersController(repository, { csrfSecret });
   const customerGuard = orderIdentity({ authenticate, repository });
+  const customerPageGuard = (req, res, next) => {
+    if (!req.customer) return res.redirect(303, `/auth/google?returnTo=${encodeURIComponent(req.originalUrl)}`);
+    return customerGuard(req, res, next);
+  };
   const customerOrders = require('../controllers/storefront/customer-orders.controller').createCustomerOrdersController(repository);
   router.use('/account/orders', (req, res, next) => { res.set('Cache-Control', 'private, no-store'); next(); });
-  router.get('/account/orders', customerGuard, customerOrders.index);
-  router.get('/account/orders/:id', customerGuard, customerOrders.detail);
+  router.get('/account/orders', customerPageGuard, customerOrders.index);
+  router.get('/account/orders/:id', customerPageGuard, customerOrders.detail);
   const adminGuard = orderIdentity({ authenticate, repository, admin: true, permission: 'orders' });
   const dashboardGuard = orderIdentity({ authenticate, repository, allowAnyAdmin: true });
   router.use(['/checkout', '/api/orders', '/api/payments/webhook', '/admin'], (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
   const available = (req, res, next) => service.settings.enabled ? next() : next(new OrderError('CHECKOUT_UNAVAILABLE', 503));
-  router.get('/checkout', available, customerGuard, checkout.page);
+  router.get('/checkout', available, customerPageGuard, checkout.page);
   const receiptUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5242880, files: 1, fields: 0, parts: 2 } }).single('proof');
   router.post('/api/payments/instapay/proof', available, customerGuard, async (req, res, next) => {
     try {
