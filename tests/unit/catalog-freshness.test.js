@@ -68,6 +68,9 @@ it('loads only categories and homepage sections for the storefront homepage', as
   }]);
 
   const homepage = await repository.getDatabaseHomepage();
+  const repeatedHomepage = await repository.getDatabaseHomepage();
+
+  expect(repeatedHomepage).toBe(homepage);
 
   expect(homepage.categories).toHaveLength(1);
   expect(homepage.categories[0]).toMatchObject({
@@ -79,4 +82,9 @@ it('loads only categories and homepage sections for the storefront homepage', as
   expect(db.storefront_sections.findMany).toHaveBeenCalledTimes(1);
   expect(db.products.findMany).not.toHaveBeenCalled();
   expect(db.discount_rules.findMany).not.toHaveBeenCalled();
+
+  repository.invalidateDatabaseCatalog();
+  await repository.getDatabaseHomepage();
+  expect(db.categories.findMany).toHaveBeenCalledTimes(2);
+  expect(db.storefront_sections.findMany).toHaveBeenCalledTimes(2);
 });

@@ -1,20 +1,29 @@
 /* global self, caches */
 'use strict';
-const CACHE = 'alreda-static-v3';
+const CACHE = 'alreda-static-v4';
 const OFFLINE_URL = '/offline.html';
 const OFFLINE_ICON_URL = '/assets/images/pwa/icon-192.png';
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll([OFFLINE_URL, OFFLINE_ICON_URL])).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', event => {
-  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('alreda-static-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim()));
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(key => key.startsWith('alreda-static-') && key !== CACHE).map(key => caches.delete(key)));
+    if (self.registration.navigationPreload) await self.registration.navigationPreload.enable();
+    await self.clients.claim();
+  })());
 });
 self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/auth/') || url.pathname.startsWith('/api/') || url.pathname.startsWith('/checkout') || url.pathname.startsWith('/admin')) return;
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)));
+    // Navigation preload starts the request while the browser starts this worker.
+    event.respondWith((async () => {
+      try { return await event.preloadResponse || await fetch(request); }
+      catch { return caches.match(OFFLINE_URL); }
+    })());
     return;
   }
   if (!/^\/assets\/(?:css|js|images|fonts)\//.test(url.pathname)) return;

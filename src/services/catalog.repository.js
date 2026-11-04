@@ -7,6 +7,10 @@ const { variantPrice, variantColor } = require('./purchase-selection.service');
 const { optimizedImageUrl } = require('../utils/optimizedImage');
 const pendingDatabaseReads = new Map();
 let pendingHomepageRead;
+const HOMEPAGE_CACHE_TTL_MS = 15_000;
+let cachedHomepage;
+let cachedHomepageUntil = 0;
+let homepageCacheRevision = 0;
 const catalog = createMediaDelivery().applyCatalog(require('../config/catalog.json'));
 const products = new Map(catalog.products.map(product => [product.sourceId, product]));
 const bySlug = new Map(catalog.products.map(product => [product.slug, product]));
@@ -58,11 +62,19 @@ async function getDatabaseCatalog(productIds = null, scope = {}) {
 
 async function getDatabaseHomepage() {
   if (!readDatabaseConfig().enabled) return { categories, byCategory, sections: fallbackSections };
+  if (cachedHomepage && Date.now() < cachedHomepageUntil) return cachedHomepage;
   if (pendingHomepageRead) return pendingHomepageRead;
+  const revision = homepageCacheRevision;
   const read = loadDatabaseHomepage();
   pendingHomepageRead = read;
   try {
-    return await read;
+    const homepage = await read;
+    // An admin write may invalidate this request while the database read is in flight.
+    if (revision === homepageCacheRevision) {
+      cachedHomepage = homepage;
+      cachedHomepageUntil = Date.now() + HOMEPAGE_CACHE_TTL_MS;
+    }
+    return homepage;
   } finally { if (pendingHomepageRead === read) pendingHomepageRead = null; }
 }
 
@@ -219,5 +231,11 @@ async function loadDatabaseCatalog(productIds = null, scope = {}) {
     bySlug: savedProductsBySlug, categories: savedCategories, byCategory: savedCategoriesBySlug };
 }
 
-function invalidateDatabaseCatalog() { pendingDatabaseReads.clear(); pendingHomepageRead = null; }
+function invalidateDatabaseCatalog() {
+  pendingDatabaseReads.clear();
+  homepageCacheRevision += 1;
+  pendingHomepageRead = null;
+  cachedHomepage = null;
+  cachedHomepageUntil = 0;
+}
 module.exports = { catalog, products, bySlug, categories, byCategory, getDatabaseCatalog, getDatabaseHomepage, invalidateDatabaseCatalog };

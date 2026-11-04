@@ -5,10 +5,10 @@
   function finish() { root.classList.remove('is-page-loading'); clearTimeout(timeout); window.dispatchEvent(new Event('alreda:page-ready')); }
   function start() { root.classList.add('is-page-loading'); clearTimeout(timeout); timeout = setTimeout(finish, 8000); }
   // On a slow mobile connection, show the existing branded loader briefly on first visit.
-  const connection = navigator.connection;
+  const connection = typeof navigator === 'undefined' ? undefined : navigator.connection;
   let firstLoadSeen = false;
   try { firstLoadSeen = sessionStorage.getItem('alreda:first-load-seen') === '1'; } catch { /* Storage is optional. */ }
-  const isSlowMobile = matchMedia('(max-width: 760px)').matches
+  const isSlowMobile = typeof matchMedia === 'function' && matchMedia('(max-width: 760px)').matches
     && !firstLoadSeen
     && (connection?.saveData || ['slow-2g', '2g', '3g'].includes(connection?.effectiveType));
   if (isSlowMobile) {
