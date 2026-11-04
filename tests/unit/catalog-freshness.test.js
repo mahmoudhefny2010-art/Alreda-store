@@ -35,6 +35,23 @@ it('does not let an older in-flight read replace or clear a newer invalidated re
   expect(db.products.findMany).toHaveBeenCalledTimes(3);
 });
 
+it('selects only storefront catalog fields and relations', async () => {
+  const db = client(); prisma.getPrismaClient = () => db;
+  const repository = require(catalogPath);
+
+  await repository.getDatabaseCatalog();
+
+  const productQuery = db.products.findMany.mock.calls[0][0];
+  expect(productQuery.select).toMatchObject({
+    catalog_details: { select: { presentation: true, color_en: true, type_en: true } },
+    product_variants: { select: { id: true, source_id: true, options: true, color_hex: true } },
+    product_images: { select: { id: true, source_id: true, secure_url: true } },
+  });
+  expect(productQuery.include).toBeUndefined();
+  expect(db.categories.findMany.mock.calls[0][0].select).toBeDefined();
+  expect(db.storefront_sections.findMany.mock.calls[0][0].select).toBeDefined();
+});
+
 it('loads only categories and homepage sections for the storefront homepage', async () => {
   const db = client();
   prisma.getPrismaClient = () => db;

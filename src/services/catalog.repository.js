@@ -93,15 +93,29 @@ async function loadDatabaseHomepage() {
 async function loadDatabaseCatalog() {
   const client = getPrismaClient();
   const [categoryRows, productRows, discountRules, sectionRows] = await Promise.all([
-    client.categories.findMany({ where: { is_active: true }, include: { home_section: true, product_categories: { select: { products: { select: { id: true, source_id: true } } } } } }),
-    client.products.findMany({ include: {
-      catalog_details: true,
+    client.categories.findMany({ where: { is_active: true }, select: {
+      id: true, source_id: true, slug: true, name: true, name_ar: true, description: true, description_ar: true,
+      image_url: true, home_section_id: true, homepage_order: true,
+      home_section: { select: { id: true, slug: true } },
+      product_categories: { select: { products: { select: { id: true, source_id: true } } } },
+    } }),
+    client.products.findMany({ select: {
+      id: true, source_id: true, category_id: true, name: true, name_ar: true, slug: true, description: true,
+      description_ar: true, price_egp: true, sale_price_egp: true, image_url: true, is_available: true, stock_quantity: true,
+      catalog_details: { select: { presentation: true, color_en: true, type_en: true } },
       product_categories: { select: { category_id: true, categories: { select: { id: true, source_id: true } } } },
-      product_variants: { orderBy: { source_id: 'asc' } },
-      product_images: { orderBy: [{ display_order: 'asc' }, { id: 'asc' }] },
+      product_variants: { select: {
+        id: true, source_id: true, title: true, title_ar: true, price_egp: true, compare_at_egp: true, sku: true,
+        options: true, is_available: true, stock_quantity: true, source_image_id: true, color_hex: true,
+      }, orderBy: { source_id: 'asc' } },
+      product_images: { select: {
+        id: true, source_id: true, secure_url: true, public_id: true, asset_id: true, alt_text: true, display_order: true,
+      }, orderBy: [{ display_order: 'asc' }, { id: 'asc' }] },
     } }),
     activeDiscounts(client),
-    client.storefront_sections.findMany({ where: { is_active: true }, orderBy: { display_order: 'asc' } }),
+    client.storefront_sections.findMany({ where: { is_active: true }, select: {
+      id: true, slug: true, title_en: true, title_ar: true, display_order: true, is_active: true,
+    }, orderBy: { display_order: 'asc' } }),
   ]);
   const savedCategories = categoryRows.map(row => {
     const original = categories.find(value => value.sourceId === row.source_id) || {};
