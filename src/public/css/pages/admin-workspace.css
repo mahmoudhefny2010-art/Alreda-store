@@ -58,10 +58,10 @@
 html[dir="rtl"] .admin-workspace .admin-sidebar { border-inline-end: 0; }
 @media (max-width: 860px) {
   .admin-workspace { display: flex; flex-direction: column; }
-  .admin-workspace .admin-sidebar { position: static; width: auto; height: auto; padding: 9px 12px; }
+  .admin-workspace .admin-sidebar { position: static; flex: 0 0 auto; width: auto; height: auto; padding: 9px 12px; }
   .admin-workspace .admin-brand { min-height: 34px; }
   .admin-workspace .sidebar-label, .admin-sidebar-account { display: none; }
-  .admin-workspace .admin-sidebar nav { display: flex; gap: 3px; overflow-x: auto; margin-block-start: 7px; padding-block-end: 2px; }
+  .admin-workspace .admin-sidebar nav { display: flex; flex-wrap: nowrap; gap: 3px; overflow-x: auto; margin-block-start: 7px; padding-block-end: 2px; }
   .admin-workspace .admin-sidebar nav a { min-height: 36px; flex: 0 0 auto; padding: 6px 9px; font-size: 11px; }
   .admin-workspace .admin-topbar { min-height: 58px; padding-inline: 16px; }
   .admin-workspace .admin-main { min-height: 0; flex: 1; }
