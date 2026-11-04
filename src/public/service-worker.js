@@ -1,9 +1,10 @@
 /* global self, caches */
 'use strict';
-const CACHE = 'alreda-static-v2';
+const CACHE = 'alreda-static-v3';
 const OFFLINE_URL = '/offline.html';
+const OFFLINE_ICON_URL = '/assets/images/pwa/icon-192.png';
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.add(OFFLINE_URL)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll([OFFLINE_URL, OFFLINE_ICON_URL])).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('alreda-static-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim()));

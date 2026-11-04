@@ -21,7 +21,12 @@ function createOneSignalService({ settings = process.env, fetchImpl = fetch } = 
       delete message.url;
       try {
         const origin = new URL(settings.CHECKOUT_ORIGIN || settings.GOOGLE_CALLBACK_URL);
-        if (origin.protocol === 'https:' && !origin.username && !origin.password) message.url = new URL(launchPath, origin.origin).href;
+        if (origin.protocol === 'https:' && !origin.username && !origin.password) {
+          message.url = new URL(launchPath, origin.origin).href;
+          const iconUrl = new URL('/assets/images/pwa/icon-192.png', origin.origin).href;
+          message.chrome_web_icon = iconUrl;
+          message.firefox_icon = iconUrl;
+        }
       } catch { /* No public launch origin configured; use the provider default. */ }
       const response = await fetchImpl('https://api.onesignal.com/notifications', { method: 'POST', headers: { Authorization: `Key ${parsed.data.ONESIGNAL_REST_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ app_id: parsed.data.ONESIGNAL_APP_ID, include_subscription_ids: subscriptionIds, ...message,

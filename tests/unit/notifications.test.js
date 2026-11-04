@@ -20,7 +20,14 @@ describe('customer push preferences and OneSignal delivery', () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'accepted-message' }) });
     const service = createOneSignalService({ settings: { ONESIGNAL_APP_ID: '7f862239-6261-47e9-a54a-63f21437f14e', ONESIGNAL_REST_API_KEY: 'synthetic-long-server-key', GOOGLE_CALLBACK_URL: callback }, fetchImpl });
     await service.send({ subscriptionIds: ['synthetic-device'], eventType: 'ORDER_PLACED', payload: {} });
-    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).url).toBe(expected);
+    const sent = JSON.parse(fetchImpl.mock.calls[0][1].body);
+    expect(sent.url).toBe(expected);
+    if (expected) {
+      expect(sent.chrome_web_icon).toBe('https://store.example/assets/images/pwa/icon-192.png');
+      expect(sent.firefox_icon).toBe(sent.chrome_web_icon);
+    } else {
+      expect(sent.chrome_web_icon).toBeUndefined();
+    }
   });
   it('saves only validated preferences for the authenticated customer', async () => {
     const repository = { savePreferences: vi.fn(), registerSubscription: vi.fn(), unregisterSubscription: vi.fn() };
