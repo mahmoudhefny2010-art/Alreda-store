@@ -2,8 +2,7 @@ node_modules/
 .vercel/
 /public/
 .npm-cache/
-.env
-.env.*
+.env*
 !.env.example
 coverage/
 test-results/
@@ -41,13 +40,3 @@ src/public/images/collection-previews/
 src/public/images/product-details/
 src/config/catalog-preview.json
 src/config/product-details-preview.json
-# Local-only archives, browser QA data, and screenshots
-.playwright-mcp/
-alreda-store-lightweight/
-alreda-store-lightweight.zip
-alreda-store-verification-screenshots/
-docs/screenshots/
-design-qa.md
-
-.vercel
-.env*
