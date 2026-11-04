@@ -7,7 +7,7 @@
   "functions": {
     "app.js": {
       "maxDuration": 60,
-      "includeFiles": ["src/views/**", "src/config/*.json"]
+      "includeFiles": "{src/views/**,src/config/*.json}"
     }
   },
   "headers": [
