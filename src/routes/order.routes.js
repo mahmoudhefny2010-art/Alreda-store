@@ -7,6 +7,7 @@ const { createAdminOrdersController } = require('../controllers/admin/orders.con
 const { orderIdentity } = require('../middleware/order-identity.middleware');
 const { OrderError } = require('../validators/order.validator');
 const { createNotificationRepository } = require('../repositories/notification.repository');
+const { createNotificationWorker } = require('../services/notification-worker.service');
 const dashboard = require('../controllers/admin/dashboard.controller');
 const { z } = require('zod');
 const multer = require('multer');
@@ -16,19 +17,32 @@ const { createStoreSettingsRepository } = require('../repositories/store-setting
 const { shippingSchema, templateSchema, campaignSchema } = require('../validators/store-settings.validator');
 const { defaults: pushDefaults } = require('../config/push-messages');
 const { createOneSignalService } = require('../services/onesignal.service');
+const { createWhatsAppOrderService } = require('../services/whatsapp-order.service');
 const { cityName } = require('../config/storefront-i18n');
 const { randomUUID } = require('node:crypto');
 const { sameOrigin } = require('./auth.routes');
 const { createAdminCsrfToken, verifyAdminCsrfToken } = require('../security/admin-csrf');
 function createOrderRoutes({ authenticate, repository = createOrderRepository(), policy = readCheckoutPolicy(process.env, { databaseShipping: true }), paymentProvider, logger = console, cartRepository, notificationRepository = createNotificationRepository(),
-  settingsRepository = repository.storeSettings?.() || createStoreSettingsRepository(), pushEnabled = createOneSignalService().enabled, csrfSecret = '', instapay = readInstaPayConfig(), proofMedia = createPaymentProofMedia() } = {}) {
+  notificationWorker = createNotificationWorker({ logger }),
+  settingsRepository = repository.storeSettings?.() || createStoreSettingsRepository(), pushEnabled = createOneSignalService().enabled, csrfSecret = '', instapay = readInstaPayConfig(), proofMedia = createPaymentProofMedia(),
+  whatsappOrderService = createWhatsAppOrderService() } = {}) {
   const router = Router();
   const service = createOrderService({ repository, policy, paymentProvider, logger, instapay, shippingProvider: repository.shippingRates ? fallback => repository.shippingRates(fallback) : undefined });
   const checkout = createCheckoutController({ service, repository, cartRepository, instapay });
-  const admin = createAdminOrdersController(repository, { csrfSecret });
+  const dispatchConfirmedOrder = async orderId => {
+    const order = await repository.getAdminOrder(orderId);
+    if (!order) throw new OrderError('ORDER_NOT_FOUND', 404);
+    return whatsappOrderService.sendOrder(order);
+  };
+  const admin = createAdminOrdersController(repository, { csrfSecret, dispatchStatusNotification: notificationWorker.processOrderStatus, dispatchConfirmedOrder, logger });
   const customerGuard = orderIdentity({ authenticate, repository });
-  const customerPageGuard = (req, res, next) => {
-    if (!req.customer) return res.redirect(303, `/auth/google?returnTo=${encodeURIComponent(req.originalUrl)}`);
+  const customerPageGuard = async (req, res, next) => {
+    let identity = req.customer ? { userId: req.customer.id } : null;
+    try { if (!identity && authenticate) identity = await authenticate(req); }
+    catch (error) { return next(error); }
+    if (!identity?.userId) {
+      if (req.app.locals.googleAuthEnabled) return res.redirect(303, `/auth/google?returnTo=${encodeURIComponent(req.originalUrl)}`);
+    }
     return customerGuard(req, res, next);
   };
   const customerOrders = require('../controllers/storefront/customer-orders.controller').createCustomerOrdersController(repository);
@@ -73,17 +87,20 @@ function createOrderRoutes({ authenticate, repository = createOrderRepository(),
     const id = z.uuid().safeParse(req.params.id);
     const input = z.object({ decision: z.enum(['APPROVE','REJECT']), reference: z.string().trim().max(120).default(''), verified: z.literal('on').optional(), _csrf: z.string().optional() }).strict().safeParse(req.body);
     if (!id.success || !input.success || input.data.decision === 'APPROVE' && (input.data.verified !== 'on' || !/^[A-Za-z0-9_:/-]{3,120}$/.test(input.data.reference))) throw new OrderError('INVALID_PAYMENT_REVIEW', 400);
-    await repository.reviewProof(id.data, res.locals.orderUserId, input.data.decision, input.data.reference.toUpperCase());
-    res.redirect(303, `/admin/orders/${id.data}`);
+    const reviewed = await repository.reviewProof(id.data, res.locals.orderUserId, input.data.decision, input.data.reference.toUpperCase());
+    await notificationWorker.processOrderStatus(id.data);
+    const whatsappStatus = input.data.decision === 'APPROVE' && reviewed.changed
+      ? await admin.dispatchConfirmedWhatsApp(id.data) : '';
+    res.redirect(303, `/admin/orders/${id.data}${whatsappStatus ? `?whatsapp=${whatsappStatus}` : ''}`);
   });
   router.post('/api/orders', available, customerGuard, json({ limit: '16kb' }), (req, res, next) => {
-    if (!req.is('application/json') || !service.settings.origin || req.get('origin') !== new URL(service.settings.origin).origin) return next(new OrderError('REQUEST_ORIGIN_REJECTED', 403));
+    if (!req.is('application/json') || !service.settings.origin || !sameOrigin(req)) return next(new OrderError('REQUEST_ORIGIN_REJECTED', 403));
     next();
   }, checkout.create);
   router.get('/api/orders/requests/:key', customerGuard, checkout.status);
   router.get('/admin/orders', adminGuard, admin.index);
   router.get('/admin', dashboardGuard, dashboard.createDashboardController(repository));
-  const origin = (req, res, next) => req.get('origin') === `${req.protocol}://${req.get('host')}` ? next() : next(new OrderError('REQUEST_ORIGIN_REJECTED', 403));
+  const origin = (req, res, next) => sameOrigin(req) ? next() : next(new OrderError('REQUEST_ORIGIN_REJECTED', 403));
   const adminMutationOrigin = (req, res, next) => {
     const crossSite = req.get('sec-fetch-site') === 'cross-site';
     const validCsrf = verifyAdminCsrfToken(req.customerSessionToken, csrfSecret, req.body?._csrf);
@@ -142,6 +159,7 @@ function createOrderRoutes({ authenticate, repository = createOrderRepository(),
       templates: Object.entries(pushDefaults).map(([eventType, message]) => templates.find(item => item.eventType === eventType) || { eventType, enabled: true, message }),
       audienceCounts, pushEnabled, queuedCampaign, requestKey: randomUUID(), templateSaved: req.query.saved === 'template' });
   });
+  router.get('/admin/notifications/templates', adminGuard, (req, res) => res.redirect(303, '/admin/notifications'));
   router.post('/admin/notifications/templates', adminGuard, origin, urlencoded({ extended: false, limit: '16kb' }), async (req, res) => {
     await settingsRepository.saveTemplate(res.locals.orderUserId, parseSettings(templateSchema, req.body.configuration));
     res.redirect(303, '/admin/notifications?saved=template');
@@ -157,7 +175,7 @@ function createOrderRoutes({ authenticate, repository = createOrderRepository(),
     res.redirect(303, `/admin/notifications?campaign=${input.requestKey}`);
   });
   router.post('/admin/notifications/settings', adminGuard, urlencoded({ extended: false, limit: '2kb' }), async (req, res) => {
-    if (!req.get('origin') || req.get('origin') !== `${req.protocol}://${req.get('host')}`) throw new OrderError('REQUEST_ORIGIN_REJECTED', 403);
+    if (!sameOrigin(req)) throw new OrderError('REQUEST_ORIGIN_REJECTED', 403);
     const minutes = Number(req.body?.abandonedCartMinutes);
     if (!Number.isInteger(minutes) || minutes < 15 || minutes > 10080) throw new OrderError('INVALID_REMINDER_INTERVAL', 400);
     await notificationRepository.saveReminderMinutes(minutes);
@@ -165,6 +183,7 @@ function createOrderRoutes({ authenticate, repository = createOrderRepository(),
   });
   router.get('/admin/orders/:id', adminGuard, admin.detail);
   router.post('/admin/orders/:id/status', adminGuard, urlencoded({ extended: false, limit: '2kb' }), adminMutationOrigin, admin.updateStatus);
+  router.post('/admin/orders/:id/whatsapp', adminGuard, urlencoded({ extended: false, limit: '2kb' }), adminMutationOrigin, admin.retryWhatsApp);
   router.post('/api/payments/webhook', raw({ type: 'application/json', limit: '64kb' }), async (req, res) => {
     res.json(await service.receivePayment(req.body, req.headers));
   });

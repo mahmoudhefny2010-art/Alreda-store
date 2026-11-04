@@ -53,7 +53,6 @@
 .wishlist-empty .button { margin-block-start: 8px; }
 @media (max-width: 850px) {
   .pull-refresh-indicator { display: flex; }
-  .storefront-body { padding-block-end: calc(78px + env(safe-area-inset-bottom, 0px)); }
   .mobile-bottom-nav {
     position: fixed; z-index: 40; inset-inline: 14px; bottom: max(10px, env(safe-area-inset-bottom, 0px));
     display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); min-height: 62px;
@@ -78,7 +77,7 @@
   .shop-header .site-nav a { min-height: 48px; padding-inline: 10px; border-radius: 8px; }
   .whatsapp-contact { --whatsapp-offset: calc(108px + env(safe-area-inset-bottom, 0px)); }
   .favorite-toggle { inset-block-start: 12px; inset-inline-end: 12px; width: 44px; height: 44px; }
-  .favorite-toggle .icon { width: 22px; height: 22px; }
+  .favorite-toggle .icon { width: 18px; height: 18px; }
   .favorite-toggle--detail { position: static; width: auto; height: auto; min-height: 42px; padding-inline: 14px; }
   .wishlist-page { min-height: calc(100svh - 132px); padding-block: 30px 34px; }
   .wishlist-heading { margin-block-end: 18px; }
@@ -88,6 +87,11 @@
   .wishlist-card-actions { flex-wrap: wrap; gap: 5px; }
   .wishlist-card-actions .button { width: 100%; min-height: 40px; padding-inline: 6px; font-size: 13px; }
   .wishlist-remove { align-self: center; min-height: 36px; }
+}
+@media (max-width: 1024px) {
+  .favorite-toggle { inset-block-start: 8px; inset-inline-end: 8px; width: 30px; height: 30px; }
+  .favorite-toggle:not(.favorite-toggle--detail)::before { position: absolute; inset: -7px; content: ''; }
+  .favorite-toggle .icon { width: 14px; height: 14px; }
 }
 @media (max-width: 360px) {
   .mobile-bottom-nav { inset-inline: 8px; min-height: 60px; }

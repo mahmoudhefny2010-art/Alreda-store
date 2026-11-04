@@ -161,6 +161,26 @@ it('saves event templates, honors the disabled switch and sends custom text with
   await worker.processOne();
   expect(provider.send).toHaveBeenCalledWith(expect.objectContaining({ deliveryKey: job.id, payload: expect.objectContaining({ message }) }));
 });
+it('immediately delivers status updates when the customer has no saved preference row', async () => {
+  const recipient = await database.client.users.create({ data: { name: 'Synthetic account', email: `${randomUUID()}@example.invalid`, role: 'customer' } });
+  const subscriptionId = randomUUID();
+  await database.client.push_subscribers.create({ data: { user_id: recipient.id, external_id: recipient.id, onesignal_subscription_id: subscriptionId } });
+  const order = await database.client.orders.create({ data: {
+    order_number: `AS-${randomUUID().replaceAll('-', '').slice(0, 20)}`, user_id: recipient.id, address_snapshot: '{}',
+    customer_name: 'Synthetic Buyer', customer_phone: '01000000000', subtotal_egp: 100, total_egp: 100,
+  } });
+  await database.client.notification_outbox.create({ data: {
+    user_id: recipient.id, order_id: order.id, event_type: 'ORDER_STATUS', dedupe_key: `${order.id}:ORDER_STATUS:CONFIRMED`,
+    payload: { reference: order.order_number, status: 'CONFIRMED' },
+  } });
+  const provider = { enabled: true, send: vi.fn(async () => ({ skipped: false, messageId: 'synthetic-provider-id' })) };
+  const worker = createNotificationWorker({ clientProvider: () => database.client, provider, logger: { error: () => {} } });
+
+  await expect(worker.processOrderStatus(order.id)).resolves.toEqual({ processed: 1, skipped: false });
+
+  expect(provider.send).toHaveBeenCalledWith(expect.objectContaining({ subscriptionIds: [subscriptionId], eventType: 'ORDER_STATUS' }));
+  expect(await database.client.notification_attempts.findFirst({ where: { outbox: { order_id: order.id } } })).toMatchObject({ status: 'SENT' });
+});
 it('guards admin settings routes and queues a campaign without calling the real provider', async () => {
   await settings.saveShipping(admin.id, { mode: 'CITY', flatFee: 0, zones: [{ city: 'Cairo', cityAr: 'Ø§Ù„Ù‚Ø§Ù‡Ø±Ø©', fee: 25, enabled: true }] });
   const app = createApp({ environment: 'test', authSettings: {}, logger: { error: () => {} }, orders: { repository: orders, policy: { enabled: false, shippingRates: {} },

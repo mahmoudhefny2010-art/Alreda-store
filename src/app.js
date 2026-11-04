@@ -5,6 +5,7 @@ const routes = require('./routes');
 const notFound = require('./middleware/notFound.middleware');
 const errorHandler = require('./middleware/error.middleware');
 const { createWhatsAppConfig } = require('./config/whatsapp');
+const { createWhatsAppOrderService } = require('./services/whatsapp-order.service');
 const { createMediaDelivery } = require('./services/media-delivery.service');
 const { checkDatabaseReadiness } = require('./services/database.service');
 const { createOrderRoutes } = require('./routes/order.routes');
@@ -94,7 +95,8 @@ function createApp({ environment = 'development', logger = console, whatsappSett
   });
   // Feature router owns raw webhook parsing; the provider receives untouched signature input.
   app.use(createOrderRoutes({ logger, csrfSecret: authConfig.sessionSecret, ...orders, policy: checkoutPolicy, cartRepository: cartStore,
-    authenticate: orders.authenticate || (req => req.customer ? { userId: req.customer.id } : null) }));
+    authenticate: orders.authenticate || (req => req.customer ? { userId: req.customer.id } : null),
+    whatsappOrderService: orders.whatsappOrderService || createWhatsAppOrderService(whatsappSettings) }));
   app.use('/admin/catalog/products', express.urlencoded({ extended:false, limit:'256kb' }));
   app.use(['/admin/access', '/admin/catalog', '/admin/promotions'], express.urlencoded({ extended: false, limit: '64kb' }));
   app.use('/api/admin', express.json({ limit: '64kb' }));

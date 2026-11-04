@@ -1,13 +1,18 @@
 <link rel="stylesheet" href="/assets/css/pages/checkout.css?v=order-summary-20261103-3">
-<script src="/assets/js/checkout.js?v=order-summary-20261103-3" defer></script>
-<% const text = (en, ar) => locale === 'ar' ? ar : en; const account = typeof customer !== 'undefined' ? customer : null; const pay = typeof instapay === 'undefined' ? { enabled:false } : instapay; %>
+<script src="/assets/js/checkout.js?v=checkout-retry-20261104-1" defer></script>
+<% const text = (en, ar) => locale === 'ar' ? ar : en; const account = typeof customer !== 'undefined' ? customer : null; const pay = typeof instapay === 'undefined' ? { enabled:false } : instapay; const saved = typeof savedDetails !== 'undefined' ? savedDetails : {}; %>
 <section class="checkout-page container">
   <header class="checkout-heading"><a class="text-link" href="/products">← <%= t('continueBrowsing') %></a><h1><%= t('checkoutTitle') %></h1></header>
   <p id="checkout-status" role="status" aria-live="polite"></p><div id="checkout-result" hidden></div>
   <form id="checkout-form" data-request-key="<%= requestKey %>" data-locale="<%= locale %>"
+    data-invalid-name="<%= text('Enter a name between 2 and 160 characters.', 'أدخل اسمًا من حرفين إلى ١٦٠ حرفًا.') %>" data-invalid-phone="<%= text('Enter a valid Egyptian mobile number, such as 01012345678 or +201012345678.', 'أدخل رقم هاتف محمول مصريًا صحيحًا، مثل 01012345678 أو +201012345678.') %>"
     data-order-confirmed="<%= t('orderConfirmed') %>" data-order-pending-payment="<%= t('orderPendingPayment') %>" data-order-pending-verification="<%= t('orderPendingVerification') %>"
     data-order-cancelled="<%= t('orderCancelled') %>" data-status-checking="<%= t('orderStatusChecking') %>" data-status-unknown="<%= t('orderStatusUnknown') %>"
-    data-status-conflict="<%= t('orderStatusConflict') %>" data-order-not-confirmed="<%= t('orderNotConfirmed') %>" data-response-interrupted="<%= t('orderResponseInterrupted') %>"
+    data-status-conflict="<%= t('orderStatusConflict') %>" data-order-not-confirmed="<%= t('orderNotConfirmed') %>" data-invalid-order-details="<%= t('invalidOrderDetails') %>"
+    data-unsupported-shipping-city="<%= t('unsupportedShippingCity') %>" data-order-price-changed="<%= t('orderPriceChanged') %>"
+    data-order-product-unavailable="<%= t('orderProductUnavailable') %>" data-order-insufficient-stock="<%= t('orderInsufficientStock') %>"
+    data-order-options-required="<%= t('orderOptionsRequired') %>" data-order-selection-unavailable="<%= t('orderSelectionUnavailable') %>"
+    data-order-origin-rejected="<%= t('orderOriginRejected') %>" data-order-payment-unavailable="<%= t('orderPaymentUnavailable') %>" data-response-interrupted="<%= t('orderResponseInterrupted') %>"
     data-choose-item="<%= t('chooseItem') %>" data-total-label="<%= t('total') %>" data-verified-submit="<%= t('verifiedBeforeSubmit') %>"
     data-reference-label="<%= t('reference') %>" data-payment-label="<%= t('paymentStatus') %>" data-saving-order="<%= t('savingOrder') %>"
     data-paid="<%= t('paid') %>" data-pending="<%= t('pending') %>" data-unpaid="<%= t('unpaid') %>"
@@ -20,9 +25,9 @@
     <div class="checkout-layout"><div class="checkout-details">
     <fieldset><legend><span class="checkout-step">1</span> <%= text('Contact details', 'بيانات التواصل') %></legend>
       <div class="checkout-fields">
-      <label class="checkout-wide"><%= t('fullName') %><input name="name" value="<%= account?.name || '' %>" autocomplete="name" minlength="2" maxlength="160" required></label>
-      <label><%= t('email') %><input name="email" value="<%= account?.email || '' %>" type="email" autocomplete="email" maxlength="254" required></label>
-      <label><%= t('phone') %><input name="phone" type="tel" dir="ltr" autocomplete="tel" pattern="\+?[0-9]{8,15}" placeholder="01012345678" required></label>
+      <label class="checkout-wide"><%= t('fullName') %><input name="name" value="<%= saved.name || account?.name || '' %>" autocomplete="name" minlength="2" maxlength="160" required></label>
+      <label><%= t('email') %><input name="email" value="<%= saved.email || account?.email || '' %>" type="email" autocomplete="email" maxlength="254" required></label>
+      <label><%= t('phone') %><input name="phone" type="tel" dir="ltr" autocomplete="tel" inputmode="tel" pattern="(?:\+?(?:20|٢٠)[\s().-]*)?(?:0?1[0125]|٠?١[٠١٢٥])(?:[\s().-]*[0-9٠-٩۰-۹]){8}" placeholder="01012345678" value="<%= saved.phone || '' %>" required></label>
       </div>
     </fieldset>
     <fieldset><legend><span class="checkout-step">2</span> <%= text('Delivery address', 'عنوان التوصيل') %></legend>
@@ -31,9 +36,9 @@
       <p class="checkout-help" data-location-status role="status" aria-live="polite"></p>
       </div>
       <div class="checkout-fields">
-      <label class="checkout-wide"><%= t('deliveryAddress') %><input name="address" autocomplete="street-address" minlength="5" maxlength="300" placeholder="<%= text('Street, building, floor and apartment', 'الشارع، رقم العمارة، الدور والشقة') %>" required></label>
-      <label><%= t('city') %><select name="city" required><% for (const [city, fee] of Object.entries(policy.shippingRates)) { %><option value="<%= city %>" data-fee="<%= fee %>"><%= locale === 'ar' ? policy.shippingLabels?.[city] || cityName(city, locale) : city %> — <%= t('shipping') %> <%= formatPrice(String(fee) + '.00', locale) %></option><% } %></select></label>
-      <label><%= t('postalCode') %><input name="postalCode" inputmode="numeric" autocomplete="postal-code" pattern="[0-9]{5}" maxlength="5"></label>
+      <label class="checkout-wide"><%= t('deliveryAddress') %><input name="address" autocomplete="street-address" minlength="5" maxlength="300" placeholder="<%= text('Street, building, floor and apartment', 'الشارع، رقم العمارة، الدور والشقة') %>" value="<%= saved.address || '' %>" required></label>
+      <label><%= t('city') %><select name="city" required><% for (const [city, fee] of Object.entries(policy.shippingRates)) { %><option value="<%= city %>" data-fee="<%= fee %>" <%= saved.city === city ? 'selected' : '' %>><%= locale === 'ar' ? policy.shippingLabels?.[city] || cityName(city, locale) : city %> — <%= t('shipping') %> <%= formatPrice(String(fee) + '.00', locale) %></option><% } %></select></label>
+      <label><%= t('postalCode') %><input name="postalCode" inputmode="numeric" autocomplete="postal-code" pattern="[0-9]{5}" maxlength="5" value="<%= saved.postalCode || '' %>"></label>
       <label class="checkout-wide"><%= t('notes') %><textarea name="notes" maxlength="500" rows="2" placeholder="<%= text('Landmark or delivery instructions', 'علامة مميزة أو تعليمات للتوصيل') %>"></textarea></label>
       </div>
     </fieldset>

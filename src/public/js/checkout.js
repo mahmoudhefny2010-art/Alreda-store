@@ -100,6 +100,11 @@
   const previousRequest = Boolean(retained); key = retained || key;
   try { sessionStorage.setItem(storageKey, key); } catch { /* No customer/order data is stored in browser storage. */ }
   history.replaceState(null, '', `${location.pathname}${location.search}#request=${key}`);
+  function rotateRequestKey() {
+    key = crypto.randomUUID();
+    try { sessionStorage.setItem(storageKey, key); } catch { /* The URL fragment retains retries when storage is blocked. */ }
+    history.replaceState(null, '', `${location.pathname}${location.search}#request=${key}`);
+  }
   function total() {
     const lines = [...form.querySelectorAll('[data-product-id]')].filter(input => Number(input.value) > 0);
     return lines.reduce((sum, input) => sum + Number(input.value) * Number(input.dataset.price), 0) + Number(form.elements.city.selectedOptions[0]?.dataset.fee || 0);
@@ -165,6 +170,24 @@
     } catch { if (!silent) { status.textContent = msg('statusUnknown'); check.hidden = false; } }
     finally { setBusy(false); }
   }
+  const nameField = form.elements.name;
+  const phoneField = form.elements.phone;
+  function normalizePhone(value) {
+    const digits = value.trim().replace(/[\s().-]/g, '')
+      .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+      .replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)));
+    const local = digits.replace(/^\+?20/, '');
+    const national = local.startsWith('0') ? local : `0${local}`;
+    return /^01[0125]\d{8}$/.test(national) ? `+20${national.slice(1)}` : '';
+  }
+  function validateContact() {
+    const name = nameField.value.trim();
+    nameField.setCustomValidity(name.length >= 2 && name.length <= 160 ? '' : form.dataset.invalidName);
+    phoneField.setCustomValidity(normalizePhone(phoneField.value) ? '' : form.dataset.invalidPhone);
+  }
+  nameField.addEventListener('input', validateContact);
+  phoneField.addEventListener('input', validateContact);
+  validateContact();
   form.addEventListener('input', refreshTotal);
   form.addEventListener('change', refreshTotal);
   form.addEventListener('submit', async event => {
@@ -175,13 +198,31 @@
     const shipping = { country: 'EG', city: fields.city.value, address: fields.address.value };
     if (fields.postalCode.value) shipping.postalCode = fields.postalCode.value;
     if (deliveryLocation) shipping.location = deliveryLocation;
-    const payload = { customer: { name: fields.name.value, email: fields.email.value, phone: fields.phone.value }, shipping,
+    const payload = { customer: { name: fields.name.value.trim(), email: fields.email.value, phone: normalizePhone(fields.phone.value) }, shipping,
       items, expectedTotalEgp: total(), paymentMethod: fields.paymentMethod.value, ...(paymentMethod() === 'INSTAPAY' ? { paymentProofId } : {}), notes: fields.notes.value };
     setBusy(true); status.textContent = '';
     try {
       const response = await fetch('/api/orders', { method: 'POST', credentials: 'same-origin', signal: AbortSignal.timeout(20000), headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key }, body: JSON.stringify(payload) });
       const data = await response.json();
-      if (!response.ok) { status.textContent = data.code === 'IDEMPOTENCY_CONFLICT' ? msg('statusConflict') : msg('orderNotConfirmed'); check.hidden = false; return; }
+      if (!response.ok) {
+        const messages = {
+          INVALID_ORDER: 'invalidOrderDetails',
+          UNSUPPORTED_SHIPPING: 'unsupportedShippingCity',
+          PRICE_CHANGED: 'orderPriceChanged',
+          PRODUCT_UNAVAILABLE: 'orderProductUnavailable',
+          INSUFFICIENT_INVENTORY: 'orderInsufficientStock',
+          PRODUCT_OPTIONS_REQUIRED: 'orderOptionsRequired',
+          ORDER_SELECTION_UNAVAILABLE: 'orderSelectionUnavailable',
+          REQUEST_ORIGIN_REJECTED: 'orderOriginRejected',
+          PAYMENT_METHOD_UNAVAILABLE: 'orderPaymentUnavailable',
+        };
+        const retryable = Object.hasOwn(messages, data.code);
+        status.textContent = data.code === 'IDEMPOTENCY_CONFLICT' ? msg('statusConflict')
+          : messages[data.code] ? msg(messages[data.code]) : msg('orderNotConfirmed');
+        if (retryable) rotateRequestKey();
+        check.hidden = retryable;
+        return;
+      }
       display(data);
     } catch { status.textContent = msg('responseInterrupted'); check.hidden = false; }
     finally { setBusy(false); }

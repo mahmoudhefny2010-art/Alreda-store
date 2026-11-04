@@ -6,6 +6,11 @@ async function freezeBeforeLoad(page) {
   await page.goto('/');
 }
 
+async function dismissWelcomeDialog(page) {
+  const dialog = page.locator('[data-welcome-dialog]');
+  if (await dialog.isVisible()) await dialog.locator('[data-welcome-close]').click();
+}
+
 test('intro timing is once per load and never moves or enlarges the icon', async ({ page }) => {
   await freezeBeforeLoad(page);
   const contact = page.locator('[data-whatsapp-contact]');
@@ -65,6 +70,8 @@ test('desktop hover and keyboard focus reveal the label', async ({ page }) => {
 
 test('contact link opens an encoded greeting in a safe new tab', async ({ page, context }) => {
   await page.goto('/');
+  await expect(page.locator('[data-welcome-dialog]')).toBeVisible();
+  await dismissWelcomeDialog(page);
   const link = page.getByRole('link', { name: 'Contact Alreda Store on WhatsApp (opens in a new tab)' });
   const href = new URL(await link.getAttribute('href'));
   expect(href.origin).toBe('https://wa.me');
@@ -104,6 +111,7 @@ test('reduced motion skips the intro and removes transitions', async ({ page }) 
   const contact = page.locator('[data-whatsapp-contact]');
   const label = contact.locator('.whatsapp-contact__label');
   await page.clock.runFor(5000);
+  await dismissWelcomeDialog(page);
   await expect(contact).not.toHaveClass(/is-revealed/);
   await expect(label).toHaveCSS('transition-duration', '0s');
   await contact.getByRole('link').focus();

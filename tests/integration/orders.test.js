@@ -19,10 +19,10 @@ function body(item, quantity = 1) {
   return { customer: { name: 'Synthetic Buyer', email: 'synthetic@example.invalid', phone: '01000000000' }, shipping: { country: 'EG', city: 'Cairo', address: 'Synthetic test address' },
     items: [{ productId: item.id, quantity, unitPriceEgp: item.price_egp }], expectedTotalEgp: item.price_egp * quantity + 25, paymentMethod: 'CASH_ON_DELIVERY' };
 }
-function app(userId, options = {}) {
-  return createApp({ environment: 'test', logger, whatsappSettings: {}, mediaSettings: {}, orders: { repository, policy, authenticate: async () => userId ? { userId } : null, ...options } });
+function app(userId, options = {}, authSettings = process.env) {
+  return createApp({ environment: 'test', logger, whatsappSettings: {}, mediaSettings: {}, authSettings, orders: { repository, policy, authenticate: async () => userId ? { userId } : null, ...options } });
 }
-function post(application, key, payload) { return request(application).post('/api/orders').set('Origin', policy.origin).set('Idempotency-Key', key).send(payload); }
+function post(application, key, payload) { return request(application).post('/api/orders').set('Host', new URL(policy.origin).host).set('Origin', policy.origin).set('Idempotency-Key', key).send(payload); }
 beforeAll(async () => {
   database = await startOrderDatabase(); repository = createOrderRepository(() => database.client);
   [customer, admin, stranger] = await Promise.all(['customer', 'admin', 'customer'].map(role => database.client.users.create({ data: { name: 'Synthetic account', email: `${randomUUID()}@example.invalid`, role } })));
@@ -31,8 +31,9 @@ afterAll(async () => { await database?.stop(); }, 30000);
 
 describe('durable PostgreSQL order workflow', () => {
   it('sends unauthenticated customer pages to Google sign-in with a safe return path', async () => {
-    await request(app(null)).get('/checkout').expect(303).expect('Location', '/auth/google?returnTo=%2Fcheckout');
-    await request(app(null)).get('/account/orders').expect(303).expect('Location', '/auth/google?returnTo=%2Faccount%2Forders');
+    const unauthenticated = app(null, {}, { GOOGLE_CLIENT_ID: 'synthetic-client-id', GOOGLE_CLIENT_SECRET: 'synthetic-client-secret' });
+    await request(unauthenticated).get('/checkout').expect(303).expect('Location', '/auth/google?returnTo=%2Fcheckout');
+    await request(unauthenticated).get('/account/orders').expect(303).expect('Location', '/auth/google?returnTo=%2Faccount%2Forders');
   });
 
   it('persists the optional delivery pin, verifies retries and displays its map link in admin', async () => {
@@ -134,6 +135,14 @@ describe('durable PostgreSQL order workflow', () => {
     const response = await post(application, randomUUID(), body(item, 2)).set('Cookie', cookie).expect(200);
     expect(response.body.confirmed).toBe(true);
     expect(await repository.getAdminOrder(response.body.order.id)).toMatchObject({ total_egp: 245 });
+    const checkoutAfterOrder = await request(application).get('/checkout').set('Cookie', cookie).expect(200);
+    expect(checkoutAfterOrder.text).toContain('name="name" value="Synthetic Buyer"');
+    expect(checkoutAfterOrder.text).toContain('name="email" value="synthetic@example.invalid"');
+    expect(checkoutAfterOrder.text).toContain('name="phone"');
+    expect(checkoutAfterOrder.text).toContain('value="+201000000000"');
+    expect(checkoutAfterOrder.text).toContain('name="address"');
+    expect(checkoutAfterOrder.text).toContain('value="Synthetic test address"');
+    expect(checkoutAfterOrder.text).toContain('<option value="Cairo" data-fee="25" selected>');
     expect((await carts.get({ userId: customer.id })).cart_items).toHaveLength(0);
     const unknown = await product(null);
     await request(application).post('/api/cart/items').set('Host', 'localhost').set('Origin', policy.origin).set('Cookie', cookie).send({ productId: unknown.id, quantity: 1 }).expect(409);
@@ -155,13 +164,25 @@ describe('durable PostgreSQL order workflow', () => {
     expect(overview.text).toContain(stored.order_number);
     await request(app(admin.id)).get(`/admin/orders/${stored.id}`).expect(200);
   });
+  it('accepts checkout from the current same-origin deployment host when the configured canonical URL differs', async () => {
+    const item = await product();
+    const response = await request(app(customer.id)).post('/api/orders')
+      .set('Host', 'store.example')
+      .set('Origin', 'http://store.example')
+      .set('Idempotency-Key', randomUUID())
+      .set('Content-Type', 'application/json')
+      .send(body(item))
+      .expect(200);
+    expect(response.body).toMatchObject({ state: 'confirmed', confirmed: true });
+  });
 
   it('lets an authenticated admin update order status when a local proxy rewrites the origin host', async () => {
     const item = await product();
     const created = await service().submit(customer.id, randomUUID(), body(item));
     const auth = createCustomerAuthRepository(() => database.client);
     const session = await auth.createSession(admin.id);
-    const application = createApp({ environment: 'test', logger, authRepository: auth, orders: { repository, policy } });
+    const whatsappOrderService = { sendOrder: vi.fn(async () => ({ status: 'sent' })) };
+    const application = createApp({ environment: 'test', logger, authRepository: auth, orders: { repository, policy, whatsappOrderService } });
     const cookie = `alreda_session=${session.token}`;
     const detail = await request(application).get(`/admin/orders/${created.order.id}`).set('Cookie', cookie).expect(200);
     const csrfToken = detail.text.match(/name="_csrf" value="([a-f0-9]{64})"/i)?.[1];
@@ -170,8 +191,15 @@ describe('durable PostgreSQL order workflow', () => {
       .set('Cookie', cookie).set('Host', '127.0.0.1:666').set('Origin', 'http://localhost:666')
       .set('Sec-Fetch-Site', 'same-origin').type('form').send({ status: 'CONFIRMED', _csrf: csrfToken });
     expect(response.status, response.text).toBe(303);
-    expect(response.headers.location).toBe(`/admin/orders/${created.order.id}`);
+    expect(response.headers.location).toBe(`/admin/orders/${created.order.id}?whatsapp=sent`);
     expect((await repository.getAdminOrder(created.order.id)).status).toBe('CONFIRMED');
+    expect(whatsappOrderService.sendOrder).toHaveBeenCalledWith(expect.objectContaining({ id: created.order.id, status: 'CONFIRMED' }));
+    const retry = await request(application).post(`/admin/orders/${created.order.id}/whatsapp`)
+      .set('Cookie', cookie).set('Host', '127.0.0.1:666').set('Origin', 'http://localhost:666')
+      .set('Sec-Fetch-Site', 'same-origin').type('form').send({ _csrf: csrfToken });
+    expect(retry.status).toBe(303);
+    expect(retry.headers.location).toBe(`/admin/orders/${created.order.id}?whatsapp=sent`);
+    expect(whatsappOrderService.sendOrder).toHaveBeenCalledTimes(2);
   });
 
   it('cancels once, restores inventory atomically, and serves notification settings from PostgreSQL to admins', async () => {

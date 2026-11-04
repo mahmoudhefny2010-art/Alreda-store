@@ -20,8 +20,12 @@ function getCollectionFromData(data, slug, { q = '', sort = 'featured', page = 1
   const pageCount = Math.max(1, Math.ceil(matches.length / pageSize));
   if (page > pageCount) return { invalidPage: true };
   const pageHref = number => `${sourceCategory.href}?${new URLSearchParams({ ...(q ? { q } : {}), ...(sort !== 'featured' ? { sort } : {}), page: String(number) })}`;
+  const visiblePages = pageCount <= 7 ? Array.from({ length: pageCount }, (_, index) => index + 1)
+    : page <= 4 ? [1, 2, 3, 4, 5, null, pageCount]
+    : page >= pageCount - 3 ? [1, null, pageCount - 4, pageCount - 3, pageCount - 2, pageCount - 1, pageCount]
+    : [1, null, page - 1, page, page + 1, null, pageCount];
   return { persistentCatalog: data.persistent === true, category: displayCategory, categories: displayCategories, q, sort, page, pageCount, matchedCount: matches.length, totalCount: source.length, capturedAt: data.catalog.capturedAt,
-    pagination: Array.from({ length: pageCount }, (_, index) => ({ number: index + 1, href: pageHref(index + 1) })),
+    pagination: visiblePages.map(number => ({ number, href: number ? pageHref(number) : null })),
     products: matches.slice((page - 1) * pageSize, page * pageSize).map(product => productCard(product, displayCategory.slug, locale)) };
 }
 function getCollection(slug, options) { return getCollectionFromData({ catalog, products: productIndex, categories, byCategory }, slug, options); }

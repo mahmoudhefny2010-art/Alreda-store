@@ -9,6 +9,7 @@ function deliveryFailureCode(error) {
   if (/^ONESIGNAL_HTTP_[0-9]{3}$/.test(error?.message || '')) return error.message;
   if (error?.message === 'PROVIDER_NOT_CONFIGURED') return error.message;
   if (error?.message === 'ONESIGNAL_NO_ACTIVE_SUBSCRIPTIONS') return 'NO_ACTIVE_SUBSCRIPTIONS';
+  if (error?.message === 'ONESIGNAL_INVALID_SUBSCRIPTIONS') return 'INVALID_SUBSCRIPTIONS';
   if (error?.message === 'ONESIGNAL_INVALID_RESPONSE') return 'PROVIDER_INVALID_RESPONSE';
   if (error?.message === 'ONESIGNAL_NO_MESSAGE') return 'PROVIDER_INVALID_RESPONSE';
   if (error?.name === 'AbortError' || ['ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT'].includes(error?.code) || error?.cause?.code === 'ETIMEDOUT') return 'PROVIDER_TIMEOUT';
@@ -42,20 +43,29 @@ function createNotificationWorker({ clientProvider = getPrismaClient, provider =
       } catch (error) { if (error.code !== 'P2002') logger.error({ event: 'cart_reminder_schedule_failed', code: 'DATABASE_ERROR' }); }
     }
   }
-  async function claim() {
+  async function claim(orderId = null) {
     return db().$transaction(async tx => {
-      const rows = await tx.$queryRaw`WITH candidate AS (
-        SELECT id FROM public.notification_outbox
-        WHERE (status = 'PENDING' AND available_at <= now()) OR (status = 'SENDING' AND locked_until < now())
-        ORDER BY available_at, created_at FOR UPDATE SKIP LOCKED LIMIT 1
-      ) UPDATE public.notification_outbox AS o SET status = 'SENDING', attempts = attempts + 1, locked_until = now() + interval '90 seconds'
-        FROM candidate WHERE o.id = candidate.id RETURNING o.id, o.user_id, o.order_id, o.reminder_id, o.event_type, o.payload, o.attempts`;
+      const rows = orderId
+        ? await tx.$queryRaw`WITH candidate AS (
+          SELECT id FROM public.notification_outbox
+          WHERE ((status = 'PENDING' AND available_at <= now()) OR (status = 'SENDING' AND locked_until < now()))
+            AND order_id = ${orderId}::uuid AND event_type = 'ORDER_STATUS'
+          ORDER BY available_at, created_at FOR UPDATE SKIP LOCKED LIMIT 1
+        ) UPDATE public.notification_outbox AS o SET status = 'SENDING', attempts = attempts + 1, locked_until = now() + interval '90 seconds'
+          FROM candidate WHERE o.id = candidate.id RETURNING o.id, o.user_id, o.order_id, o.reminder_id, o.event_type, o.payload, o.attempts`
+        : await tx.$queryRaw`WITH candidate AS (
+          SELECT id FROM public.notification_outbox
+          WHERE (status = 'PENDING' AND available_at <= now()) OR (status = 'SENDING' AND locked_until < now())
+          ORDER BY available_at, created_at FOR UPDATE SKIP LOCKED LIMIT 1
+        ) UPDATE public.notification_outbox AS o SET status = 'SENDING', attempts = attempts + 1, locked_until = now() + interval '90 seconds'
+          FROM candidate WHERE o.id = candidate.id RETURNING o.id, o.user_id, o.order_id, o.reminder_id, o.event_type, o.payload, o.attempts`;
       return rows[0] || null;
     });
   }
-  async function processOne() {
-    const job = await claim();
+  async function processOne(orderId = null) {
+    const job = await claim(orderId);
     if (!job) return false;
+    let targetSubscriptionIds = [];
     try {
       const eventType = job.event_type;
       if (!['ORDER_PLACED', 'ORDER_STATUS', 'ABANDONED_CART', 'ADMIN_CAMPAIGN'].includes(eventType)) throw new Error('UNKNOWN_NOTIFICATION_EVENT');
@@ -69,9 +79,13 @@ function createNotificationWorker({ clientProvider = getPrismaClient, provider =
         ? await db().users.findFirst({ where: { id: job.user_id, ...audienceWhere(audienceSchema.parse(payload.audience)) }, select: { id: true } })
         : eventType === 'ABANDONED_CART'
         ? await db().cart_reminders.findFirst({ where: { id: job.reminder_id, status: 'SCHEDULED', carts: { status: 'ACTIVE', cart_items: { some: {} } }, users: { is_active: true, notification_preferences: { is: { marketing_enabled: true } } } }, select: { id: true } })
-        : await db().users.findFirst({ where: { id: job.user_id, is_active: true, notification_preferences: { is: { transactional_enabled: true } } }, select: { id: true } });
+        : await db().users.findFirst({ where: { id: job.user_id, is_active: true, OR: [
+          { notification_preferences: { is: { transactional_enabled: true } } },
+          { notification_preferences: { is: null } },
+        ] }, select: { id: true } });
       const subscriptions = allowed ? await db().push_subscribers.findMany({ where: { user_id: job.user_id }, select: { onesignal_subscription_id: true } }) : [];
-      const delivery = subscriptions.length ? await provider.send({ subscriptionIds: subscriptions.map(row => row.onesignal_subscription_id), eventType, payload, deliveryKey: job.id }) : { skipped: true, messageId: '' };
+      targetSubscriptionIds = subscriptions.map(row => row.onesignal_subscription_id);
+      const delivery = targetSubscriptionIds.length ? await provider.send({ subscriptionIds: targetSubscriptionIds, eventType, payload, deliveryKey: job.id }) : { skipped: true, messageId: '' };
       await db().$transaction(async tx => {
         await tx.notification_attempts.create({ data: { outbox_id: job.id, status: delivery.skipped ? 'SKIPPED' : 'SENT', provider_message_id: delivery.messageId } });
         await tx.notification_outbox.update({ where: { id: job.id }, data: { status: 'SENT', sent_at: clock(), locked_until: null } });
@@ -79,12 +93,18 @@ function createNotificationWorker({ clientProvider = getPrismaClient, provider =
       });
     } catch (error) {
       const code = deliveryFailureCode(error);
-      const noActiveSubscriptions = code === 'NO_ACTIVE_SUBSCRIPTIONS';
+      const invalidSubscriptionIds = Array.isArray(error?.invalidSubscriptionIds)
+        ? [...new Set(error.invalidSubscriptionIds.filter(id => targetSubscriptionIds.includes(id)))] : [];
+      const noActiveSubscriptions = code === 'NO_ACTIVE_SUBSCRIPTIONS'
+        || invalidSubscriptionIds.length > 0 && invalidSubscriptionIds.length === targetSubscriptionIds.length;
       const terminal = noActiveSubscriptions || job.attempts >= 8;
       await db().$transaction(async tx => {
+        if (invalidSubscriptionIds.length) {
+          await tx.push_subscribers.deleteMany({ where: { user_id: job.user_id, onesignal_subscription_id: { in: invalidSubscriptionIds } } });
+        }
         await tx.notification_attempts.create({ data: { outbox_id: job.id, status: noActiveSubscriptions ? 'SKIPPED' : 'FAILED', error_code: code } });
         await tx.notification_outbox.update({ where: { id: job.id }, data: { status: terminal ? 'DEAD' : 'PENDING', locked_until: null, last_error_code: code, available_at: new Date(clock().getTime() + Math.min(3600000, 15000 * (2 ** (job.attempts - 1)))) } });
-      }).catch(() => {});
+      }).catch(() => { logger.error({ event: 'notification_failure_recovery_failed', code: 'DATABASE_ERROR' }); });
       logger.error({ event: noActiveSubscriptions ? 'notification_delivery_skipped' : 'notification_delivery_failed', code });
     }
     return true;
@@ -102,7 +122,11 @@ function createNotificationWorker({ clientProvider = getPrismaClient, provider =
     catch { logger.error({ event: 'notification_worker_failed', code: 'WORKER_ERROR' }); return { processed, failed: true }; }
     finally { running = false; }
   }
+  async function processOrderStatus(orderId) {
+    if (!provider.enabled) return { processed: 0, skipped: true };
+    return { processed: await processOne(orderId) ? 1 : 0, skipped: false };
+  }
   function start(intervalMs = 30000) { const timer = setInterval(() => { runOnce().catch(() => {}); }, intervalMs); timer.unref(); runOnce().catch(() => {}); return () => clearInterval(timer); }
-  return { runOnce, processOne, start };
+  return { runOnce, processOne, processOrderStatus, start };
 }
 module.exports = { createNotificationWorker, deliveryFailureCode };

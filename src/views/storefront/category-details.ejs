@@ -11,7 +11,7 @@
       </form>
       <p class="collection-result-count"><%= productCount(matchedCount) %><% if (q) { %> <%= t('matching') %> “<%= q %>”<% } %> · <%= t('page') %> <%= number(page) %> <%= t('of') %> <%= number(pageCount) %></p>
       <%- include('../partials/product-grid', { products }) %>
-      <% if (pageCount > 1) { %><nav class="catalog-pagination" aria-label="<%= t('productPages') %>"><% pagination.forEach(item => { %><a href="<%= item.href %>" <% if (item.number === page) { %>aria-current="page"<% } %> aria-label="<%= t('page') %> <%= number(item.number) %>"><%= number(item.number) %></a><% }); %></nav><% } %>
+      <% if (pageCount > 1) { %><nav class="catalog-pagination" aria-label="<%= t('productPages') %>"><% pagination.forEach(item => { if (item.number === null) { %><span class="catalog-pagination-gap" aria-hidden="true">…</span><% } else { %><a href="<%= item.href %>" <% if (item.number === page) { %>aria-current="page"<% } %> aria-label="<%= t('page') %> <%= number(item.number) %>"><%= number(item.number) %></a><% } }); %></nav><% } %>
       <% if (q) { %><a class="text-link clear-filters" href="<%= category.href %>"><%= t('clearSearch') %></a><% } %>
     </div>
   </div>

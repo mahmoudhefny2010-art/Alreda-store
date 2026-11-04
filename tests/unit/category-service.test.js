@@ -19,6 +19,19 @@ describe('imported collection service', () => {
     expect(ids.length).toBe(catalog.products.length);
     expect(getCollection(null, { page: first.pageCount + 1 })).toEqual({ invalidPage: true });
   });
+  it('keeps long page lists compact while retaining first, last and nearby pages', () => {
+    const first = getCollection(null, { page: 1 });
+    if (first.pageCount <= 7) return;
+    for (const current of [1, 4, Math.ceil(first.pageCount / 2), first.pageCount]) {
+      const { pagination } = getCollection(null, { page: current });
+      const numbers = pagination.map(item => item.number);
+      expect(numbers.length).toBeLessThanOrEqual(7);
+      expect(numbers[0]).toBe(1);
+      expect(numbers.at(-1)).toBe(first.pageCount);
+      expect(numbers).toContain(current);
+      expect(numbers.filter(number => number === null).length).toBeGreaterThan(0);
+    }
+  });
   it('sorts snapshot prices safely without mutating the source order', () => {
     const original = getCollection('mirrors').products.map(product => product.id);
     const ascending = getCollection('mirrors', { sort: 'price-asc' }).products;

@@ -10,6 +10,7 @@ describe('customer push preferences and OneSignal delivery', () => {
     [{ name: 'TypeError', message: 'fetch failed', cause: { code: 'ECONNRESET' } }, 'PROVIDER_NETWORK_ERROR'],
     [{ message: 'ONESIGNAL_HTTP_401' }, 'ONESIGNAL_HTTP_401'],
     [{ message: 'ONESIGNAL_NO_ACTIVE_SUBSCRIPTIONS' }, 'NO_ACTIVE_SUBSCRIPTIONS'],
+    [{ message: 'ONESIGNAL_INVALID_SUBSCRIPTIONS' }, 'INVALID_SUBSCRIPTIONS'],
     [{ message: 'ONESIGNAL_INVALID_RESPONSE' }, 'PROVIDER_INVALID_RESPONSE'],
     [{ code: 'P2021' }, 'DATABASE_ERROR'],
   ])('classifies delivery failures without exposing error details', (error, code) => {
@@ -46,7 +47,47 @@ describe('customer push preferences and OneSignal delivery', () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ id: '', errors: ['All included players are not subscribed'] }) }));
     const service = createOneSignalService({ settings: { ONESIGNAL_APP_ID: '7f862239-6261-47e9-a54a-63f21437f14e', ONESIGNAL_REST_API_KEY: 'synthetic-provider-key-not-real' }, fetchImpl });
     await expect(service.send({ subscriptionIds: ['stale-subscription'], eventType: 'ORDER_PLACED', payload: {} }))
-      .rejects.toThrow('ONESIGNAL_NO_ACTIVE_SUBSCRIPTIONS');
+      .rejects.toMatchObject({ message: 'ONESIGNAL_NO_ACTIVE_SUBSCRIPTIONS', invalidSubscriptionIds: ['stale-subscription'] });
+  });
+
+  it('extracts only submitted IDs from OneSignal invalid-subscription errors', async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({
+      id: '', errors: { invalid_subscription_ids: ['stale-subscription', 'unrelated-subscription'] },
+    }) }));
+    const service = createOneSignalService({ settings: { ONESIGNAL_APP_ID: '7f862239-6261-47e9-a54a-63f21437f14e', ONESIGNAL_REST_API_KEY: 'synthetic-provider-key-not-real' }, fetchImpl });
+    await expect(service.send({ subscriptionIds: ['stale-subscription'], eventType: 'ORDER_PLACED', payload: {} }))
+      .rejects.toMatchObject({ message: 'ONESIGNAL_INVALID_SUBSCRIPTIONS', invalidSubscriptionIds: ['stale-subscription'] });
+  });
+
+  it('immediately dispatches a queued order-status notice and honors the default transactional preference', async () => {
+    const orderId = 'a836d7d7-65f9-4c40-9bc4-0b76581e35cc';
+    const job = { id: 'c2ce6f28-5d26-4a8d-a005-babacb314181', user_id: 'u1', order_id: orderId, reminder_id: null,
+      event_type: 'ORDER_STATUS', payload: { reference: 'AS-123', status: 'CONFIRMED' }, attempts: 1 };
+    const tx = {
+      $queryRaw: vi.fn(async () => [job]),
+      site_settings: { findUnique: vi.fn(async () => null) },
+      users: { findFirst: vi.fn(async () => ({ id: 'u1' })) },
+      push_subscribers: { findMany: vi.fn(async () => [{ onesignal_subscription_id: 'subscription-123' }]) },
+      notification_attempts: { create: vi.fn() },
+      notification_outbox: { update: vi.fn() },
+    };
+    const client = { ...tx, $transaction: vi.fn(async callback => callback(tx)) };
+    const provider = { enabled: true, send: vi.fn(async () => ({ skipped: false, messageId: 'provider-message-id' })) };
+    const worker = createNotificationWorker({ clientProvider: () => client, provider, logger: { error: vi.fn() } });
+
+    await expect(worker.processOrderStatus(orderId)).resolves.toEqual({ processed: 1, skipped: false });
+
+    const [query, parameter] = tx.$queryRaw.mock.calls[0];
+    expect(query.join(' ')).toContain("event_type = 'ORDER_STATUS'");
+    expect(parameter).toBe(orderId);
+    expect(tx.users.findFirst).toHaveBeenCalledWith({ where: {
+      id: 'u1', is_active: true, OR: [
+        { notification_preferences: { is: { transactional_enabled: true } } },
+        { notification_preferences: { is: null } },
+      ],
+    }, select: { id: true } });
+    expect(provider.send).toHaveBeenCalledWith(expect.objectContaining({ eventType: 'ORDER_STATUS', deliveryKey: job.id }));
+    expect(tx.notification_outbox.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'SENT' }) }));
   });
 
   it('ends an undeliverable notification without retrying it as a provider failure', async () => {
@@ -71,5 +112,40 @@ describe('customer push preferences and OneSignal delivery', () => {
     expect(writes.attempts[0]).toMatchObject({ status: 'SKIPPED', error_code: 'NO_ACTIVE_SUBSCRIPTIONS' });
     expect(writes.outbox[0]).toMatchObject({ status: 'DEAD', last_error_code: 'NO_ACTIVE_SUBSCRIPTIONS' });
     expect(logger.error).toHaveBeenCalledWith({ event: 'notification_delivery_skipped', code: 'NO_ACTIVE_SUBSCRIPTIONS' });
+  });
+
+  it('removes only provider-rejected IDs and retries remaining subscriptions', async () => {
+    const job = { id: 'c2ce6f28-5d26-4a8d-a005-babacb314181', user_id: 'u1', order_id: null, reminder_id: null,
+      event_type: 'ORDER_PLACED', payload: {}, attempts: 1 };
+    const writes = { attempts: [], outbox: [] };
+    const tx = {
+      $queryRaw: vi.fn(async () => [job]),
+      site_settings: { findUnique: vi.fn(async () => null) },
+      users: { findFirst: vi.fn(async () => ({ id: 'u1' })) },
+      push_subscribers: {
+        findMany: vi.fn(async () => [{ onesignal_subscription_id: 'stale-subscription' }, { onesignal_subscription_id: 'active-subscription' }]),
+        deleteMany: vi.fn(),
+      },
+      notification_attempts: { create: vi.fn(async ({ data }) => writes.attempts.push(data)) },
+      notification_outbox: { update: vi.fn(async ({ data }) => writes.outbox.push(data)) },
+    };
+    const client = { ...tx, $transaction: vi.fn(async callback => callback(tx)) };
+    const provider = { enabled: true, send: vi.fn(async ({ subscriptionIds }) => {
+      expect(subscriptionIds).toEqual(['stale-subscription', 'active-subscription']);
+      const error = new Error('ONESIGNAL_INVALID_SUBSCRIPTIONS');
+      error.invalidSubscriptionIds = ['stale-subscription'];
+      throw error;
+    }) };
+    const logger = { error: vi.fn() };
+    const worker = createNotificationWorker({ clientProvider: () => client, provider, logger });
+
+    await worker.processOne();
+
+    expect(tx.push_subscribers.deleteMany).toHaveBeenCalledWith({ where: {
+      user_id: 'u1', onesignal_subscription_id: { in: ['stale-subscription'] },
+    } });
+    expect(writes.attempts[0]).toMatchObject({ status: 'FAILED', error_code: 'INVALID_SUBSCRIPTIONS' });
+    expect(writes.outbox[0]).toMatchObject({ status: 'PENDING', last_error_code: 'INVALID_SUBSCRIPTIONS' });
+    expect(logger.error).toHaveBeenCalledWith({ event: 'notification_delivery_failed', code: 'INVALID_SUBSCRIPTIONS' });
   });
 });

@@ -2,6 +2,11 @@ const { z } = require('zod');
 const { renderMessage } = require('../config/push-messages');
 
 const envSchema = z.object({ ONESIGNAL_APP_ID: z.string().uuid(), ONESIGNAL_REST_API_KEY: z.string().min(20) });
+function providerError(code, invalidSubscriptionIds = []) {
+  const error = new Error(code);
+  if (invalidSubscriptionIds.length) error.invalidSubscriptionIds = invalidSubscriptionIds;
+  return error;
+}
 function createOneSignalService({ settings = process.env, fetchImpl = fetch } = {}) {
   const parsed = envSchema.safeParse(settings);
   return {
@@ -26,10 +31,16 @@ function createOneSignalService({ settings = process.env, fetchImpl = fetch } = 
       try { result = await response.json(); } catch { throw new Error('ONESIGNAL_INVALID_RESPONSE'); }
       if (!result || typeof result !== 'object' || Array.isArray(result)) throw new Error('ONESIGNAL_INVALID_RESPONSE');
       if (!result.id || typeof result.id !== 'string') {
-        const errors = Array.isArray(result.errors) ? result.errors : [];
-        if (errors.some(value => typeof value === 'string' && /all included players are not subscribed/i.test(value))) {
-          throw new Error('ONESIGNAL_NO_ACTIVE_SUBSCRIPTIONS');
+        const errors = result.errors;
+        if (Array.isArray(errors) && errors.some(value => typeof value === 'string' && /all included players are not subscribed/i.test(value))) {
+          throw providerError('ONESIGNAL_NO_ACTIVE_SUBSCRIPTIONS', subscriptionIds);
         }
+        const requestedIds = new Set(subscriptionIds);
+        const invalidIds = errors && typeof errors === 'object' && !Array.isArray(errors)
+          ? [...new Set(Object.entries(errors).filter(([key, value]) => /invalid.*(?:subscription|player)/i.test(key) && Array.isArray(value))
+            .flatMap(([, value]) => value).filter(value => typeof value === 'string' && requestedIds.has(value)))]
+          : [];
+        if (invalidIds.length) throw providerError('ONESIGNAL_INVALID_SUBSCRIPTIONS', invalidIds);
         throw new Error('ONESIGNAL_NO_MESSAGE');
       }
       return { skipped: false, messageId: typeof result.id === 'string' ? result.id.slice(0, 160) : '' };

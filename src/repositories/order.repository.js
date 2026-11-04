@@ -94,6 +94,11 @@ function createOrderRepository(clientProvider = getPrismaClient) {
     async getCustomerOrder(userId, id) {
       return db().orders.findFirst({ where: { id, user_id: userId }, select: orderSelect });
     },
+    async latestCustomerOrder(userId) {
+      return db().orders.findFirst({ where: { user_id: userId },
+        select: { customer_name: true, customer_phone: true, address_snapshot: true },
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }] });
+    },
     async listAdminOrders(cursor, filters = {}) {
       const where = {
         ...(filters.status ? { status: filters.status } : {}),
@@ -193,7 +198,7 @@ function createOrderRepository(clientProvider = getPrismaClient) {
         await tx.$queryRaw`SELECT id FROM public.orders WHERE id = ${orderId}::uuid FOR UPDATE`;
         const order = await tx.orders.findUnique({ where: { id: orderId }, select: { id: true, user_id: true, status: true, order_number: true, payment_status: true, payment_method: true, order_items: { select: { product_id: true, variant_id: true, quantity: true } } } });
         if (!order) throw new OrderError('ORDER_NOT_FOUND', 404);
-        if (order.status === status) return order;
+        if (order.status === status) return { ...order, changed: false };
         if (order.payment_method === 'INSTAPAY' && order.payment_status !== 'PAID' && status !== 'CANCELLED') throw new OrderError('PAYMENT_REVIEW_REQUIRED', 409);
         if (status === 'CANCELLED' && order.payment_status === 'PAID') throw new OrderError('PAID_ORDER_REFUND_REQUIRED', 409);
         if (order.status === 'DELIVERED' || order.status === 'CANCELLED' || !({ PLACED: ['CONFIRMED', 'PROCESSING', 'CANCELLED'], CONFIRMED: ['PROCESSING', 'CANCELLED'], PROCESSING: ['SHIPPED', 'CANCELLED'], SHIPPED: ['DELIVERED'] }[order.status] || []).includes(status)) throw new OrderError('INVALID_STATUS_TRANSITION', 409);
@@ -204,7 +209,7 @@ function createOrderRepository(clientProvider = getPrismaClient) {
         await tx.order_events.create({ data: { order_id: order.id, actor_id: actorId, status, note: `Administrator changed status to ${status}.` } });
         if (order.user_id) await tx.notification_outbox.create({ data: { user_id: order.user_id, order_id: order.id, event_type: 'ORDER_STATUS', dedupe_key: `${order.id}:ORDER_STATUS:${status}`,
           payload: { orderId: order.id, reference: order.order_number, status } } });
-        return { ...order, status };
+        return { ...order, status, changed: true };
       });
       invalidateDatabaseCatalog();
       return saved;
@@ -219,8 +224,8 @@ function createOrderRepository(clientProvider = getPrismaClient) {
           const order = await tx.orders.findUnique({ where: { id: orderId }, include: { order_items: true } });
           const proof = await tx.payment_proofs.findUnique({ where: { order_id: orderId } });
           if (!order || order.payment_method !== 'INSTAPAY' || !proof) throw new OrderError('PAYMENT_PROOF_NOT_FOUND', 404);
-          if (decision === 'APPROVE' && proof.status === 'APPROVED' && proof.transfer_reference === reference) return order.id;
-          if (decision === 'REJECT' && proof.status === 'REJECTED') return order.id;
+          if (decision === 'APPROVE' && proof.status === 'APPROVED' && proof.transfer_reference === reference) return { id: order.id, changed: false };
+          if (decision === 'REJECT' && proof.status === 'REJECTED') return { id: order.id, changed: false };
           if (proof.status !== 'PENDING' || order.status === 'CANCELLED' || order.payment_status === 'PAID') throw new OrderError('PAYMENT_REVIEW_CONFLICT', 409);
           if (decision === 'REJECT') await restoreInventory(tx, order.order_items);
           await tx.payment_proofs.update({ where: { id: proof.id }, data: { status: decision === 'APPROVE' ? 'APPROVED' : 'REJECTED', reviewed_by: actorId, reviewed_at: new Date(), transfer_reference: decision === 'APPROVE' ? reference : null } });
@@ -229,7 +234,7 @@ function createOrderRepository(clientProvider = getPrismaClient) {
           await tx.order_events.create({ data: { order_id: orderId, actor_id: actorId, status, note: decision === 'APPROVE' ? 'Administrator verified InstaPay funds and approved proof.' : 'Administrator rejected InstaPay proof; stock restored.' } });
           await tx.admin_audit_events.create({ data: { actor_id: actorId, action: `INSTAPAY_${decision}`, target_id: orderId } });
           if (order.user_id) await tx.notification_outbox.create({ data: { user_id: order.user_id, order_id: orderId, event_type: 'ORDER_STATUS', dedupe_key: `${orderId}:INSTAPAY:${decision}`, payload: { orderId, reference: order.order_number, status } } });
-          return order.id;
+          return { id: order.id, changed: true };
         }, { maxWait: 10000, timeout: 20000 });
         invalidateDatabaseCatalog(); return result;
       } catch (error) { if (error.code === 'P2002') throw new OrderError('PAYMENT_REFERENCE_USED', 409); throw error; }
