@@ -14,6 +14,7 @@ describe('production HTTP delivery', () => {
     expect(response.headers.vary).toContain('Cookie');
     expect(response.headers['cache-control']).toContain('no-store');
     expect(response.text).toContain('Browse our latest products');
+    expect(response.text).toContain('rel="preload" as="image"');
     await request(app).get('/').set('Accept-Encoding', 'identity').expect(200).then(result => {
       expect(result.headers['content-encoding']).toBeUndefined();
     });

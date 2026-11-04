@@ -1,6 +1,6 @@
 ﻿<section class="shopping-hero" aria-labelledby="hero-title">
   <picture>
-    <source media="(max-width: 760px)" sizes="100vw" srcset="<%= typeof mediaAsset === 'function' ? mediaAsset('banner:homepage', '/assets/images/bathroom-hero.jpg', 'mobile-banner') : '/assets/images/bathroom-hero.jpg' %> 768w, <%= typeof mediaAsset === 'function' ? mediaAsset('banner:homepage', '/assets/images/bathroom-hero.jpg', 'mobile-banner-retina') : '/assets/images/bathroom-hero.jpg' %> 1280w">
+    <source media="(max-width: 760px)" srcset="<%= typeof mediaAsset === 'function' ? mediaAsset('banner:homepage', '/assets/images/bathroom-hero.jpg', 'mobile-banner') : '/assets/images/bathroom-hero.jpg' %>">
     <img class="shopping-hero-image" src="<%= typeof mediaAsset === 'function' ? mediaAsset('banner:homepage', '/assets/images/bathroom-hero.jpg', 'homepage-banner') : '/assets/images/bathroom-hero.jpg' %>" alt="<%= t('heroAlt') %>" width="736" height="736" fetchpriority="high">
   </picture>
   <div class="shopping-hero-content"><h1 id="hero-title"><%= t('hero') %></h1><a class="hero-shop-button" href="#collections"><%= t('shopAll') %></a></div>

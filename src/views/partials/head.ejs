@@ -12,6 +12,9 @@
   <link rel="icon" type="image/jpeg" href="<%= typeof mediaAsset === 'function' ? mediaAsset('branding:logo', '/assets/images/alreda-delight-logo.jpg', 'thumbnail') : '/assets/images/alreda-delight-logo.jpg' %>">
   <title><%= title %> | <%= t('storeName') %></title>
   <% if (typeof mediaCloudName !== 'undefined' && mediaCloudName) { %><link rel="preconnect" href="https://res.cloudinary.com"><% } %>
+  <% if (contentView === '../storefront/home') { const mobileHero = typeof mediaAsset === 'function' ? mediaAsset('banner:homepage', '/assets/images/bathroom-hero.jpg', 'mobile-banner') : '/assets/images/bathroom-hero.jpg'; %>
+  <link rel="preload" as="image" href="<%= mobileHero %>" media="(max-width: 760px)" fetchpriority="high">
+  <% } %>
   <link rel="stylesheet" href="<%= assetHref('/assets/css/base/variables.css') %>">
   <link rel="stylesheet" href="<%= assetHref('/assets/css/pages/storefront.css') %>">
   <link rel="stylesheet" href="<%= assetHref('/assets/css/components/wishlist-navigation.css') %>">

@@ -4,7 +4,7 @@ const { MediaError, mediaInputSchema, entityId, validateImage } = require('../va
 const { resolveMediaFolder, assertManagedPublicId } = require('../utils/mediaPath');
 const { recordMediaEvent } = require('../repositories/media-journal.repository');
 const profiles = Object.freeze({ thumbnail: 160, 'product-card': 640, 'product-detail': 1200,
-  'category-card': 640, 'homepage-banner': 1920, 'mobile-banner': 768, 'mobile-banner-retina': 1280 });
+  'category-card': 640, 'homepage-banner': 1920, 'mobile-banner': 480 });
 const responseSchema = z.object({ public_id: z.string(), asset_id: z.string().min(1).max(200), secure_url: z.url(),
   resource_type: z.literal('image'), type: z.literal('upload').optional(), width: z.number().int().positive(), height: z.number().int().positive(),
   format: z.enum(['jpg', 'jpeg', 'png', 'webp', 'avif']), bytes: z.number().int().positive(), version: z.number().int().positive(),
