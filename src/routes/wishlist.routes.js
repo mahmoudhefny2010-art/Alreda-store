@@ -29,7 +29,7 @@ function createWishlistRoutes({ repository = createWishlistRepository(getPrismaC
       const localFallback = req.query.local === '1';
       const parsed = req.customer && !localFallback ? z.array(UUID).max(100).safeParse(await repository.listIds(req.customer.id)) : guestIdsSchema.safeParse(req.query.ids || '');
       if (!parsed.success) return res.status(400).json({ error: 'INVALID_WISHLIST' });
-      const data = await catalogProvider();
+      const data = await catalogProvider(parsed.data);
       const byId = new Map([...data.products.values()].flatMap(item => [[item.id, item], [item.sourceId, item]]).filter(([id]) => typeof id === 'string'));
       const items = parsed.data.map(id => {
         const record = byId.get(id);
@@ -47,7 +47,7 @@ function createWishlistRoutes({ repository = createWishlistRepository(getPrismaC
           compareAt: chosen?.compareAt || variants[0]?.compareAt || '', chooseLabel: translate(req.locale, 'wishlistChooseVariant'),
         };
       });
-      return res.json({ authenticated: Boolean(req.customer), items });
+      return res.json({ authenticated: Boolean(req.customer), ids: parsed.data, items });
     } catch { return res.status(503).json({ error: 'WISHLIST_UNAVAILABLE' }); }
   });
   router.post('/api/wishlist/merge', async (req, res) => {

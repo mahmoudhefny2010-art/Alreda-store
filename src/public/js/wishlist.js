@@ -13,6 +13,10 @@
   let savedReturn = '';
   let ids = new Set();
   let busy = false;
+  let wishlistSignature = null;
+  let refreshing = false;
+  let lastRefreshAt = 0;
+  const refreshInterval = 5 * 60 * 1000;
   let databaseWishlistAvailable = nav?.dataset.authenticated === 'true';
 
   if (root) {
@@ -70,6 +74,10 @@
     });
   }
   function announce(message) { if (status) status.textContent = message; if (globalStatus) globalStatus.textContent = message; }
+  function clearLoadError() {
+    if (status?.textContent === root?.dataset.error) status.textContent = '';
+    if (globalStatus?.textContent === root?.dataset.error) globalStatus.textContent = '';
+  }
   function storeIds(next) { ids = new Set(next); paintCounts(); }
   async function loadIds() {
     const guest = readGuest();
@@ -79,9 +87,6 @@
           const merged = await request('/api/wishlist/merge', { method: 'POST', body: JSON.stringify({ identifiers: guest }) });
           localStorage.removeItem(STORE_KEY);
           storeIds(merged.ids || []);
-        } else {
-          const data = await request('/api/wishlist/ids');
-          storeIds(data.ids || []);
         }
       } catch {
         databaseWishlistAvailable = false;
@@ -212,18 +217,55 @@
   async function renderWishlist() {
     if (!root || !grid) return;
     const values = [...ids];
-    if (!values.length) { grid.replaceChildren(); empty.hidden = false; root.querySelector('[data-empty-heading]').textContent = root.dataset.emptyTitle; root.querySelector('[data-empty-message]').textContent = root.dataset.emptyCopy; return; }
-    empty.hidden = true;
     try {
       const url = nav?.dataset.authenticated === 'true' && databaseWishlistAvailable ? '/api/wishlist' : `/api/wishlist?${nav?.dataset.authenticated === 'true' ? 'local=1&' : ''}ids=${encodeURIComponent(values.join(','))}`;
       const data = await request(url);
+      clearLoadError();
+      if (data.authenticated && Array.isArray(data.ids)) storeIds(data.ids);
+      const signature = JSON.stringify(data.items);
+      if (signature === wishlistSignature) { lastRefreshAt = Date.now(); return; }
+      const hadSnapshot = wishlistSignature !== null;
+      wishlistSignature = signature;
+      if (!data.items.length) {
+        grid.replaceChildren();
+        empty.hidden = false;
+        root.querySelector('[data-empty-heading]').textContent = root.dataset.emptyTitle;
+        root.querySelector('[data-empty-message]').textContent = root.dataset.emptyCopy;
+        lastRefreshAt = Date.now();
+        return;
+      }
+      empty.hidden = true;
       grid.replaceChildren(...data.items.map(productCard));
       paintCounts();
-    } catch { grid.replaceChildren(); announce(root.dataset.error); }
+      if (hadSnapshot) announce(root.dataset.updated);
+      lastRefreshAt = Date.now();
+    } catch {
+      if (nav?.dataset.authenticated === 'true' && databaseWishlistAvailable) {
+        databaseWishlistAvailable = false;
+        storeIds(readGuest());
+      }
+      announce(root.dataset.error);
+    }
+  }
+
+  async function refreshWishlist() {
+    if (!root || refreshing || document.hidden) return;
+    refreshing = true;
+    try { await loadIds(); await renderWishlist(); }
+    finally { refreshing = false; }
+  }
+  function refreshIfDue() {
+    if (!document.hidden && Date.now() - lastRefreshAt >= refreshInterval) refreshWishlist();
   }
 
   loadIds().then(renderWishlist);
   document.addEventListener('wishlist:refresh', () => loadIds().then(renderWishlist));
+  if (root) {
+    window.setInterval(refreshIfDue, refreshInterval);
+    document.addEventListener('visibilitychange', refreshIfDue);
+    window.addEventListener('focus', refreshIfDue);
+    window.addEventListener('pageshow', event => { if (event.persisted) refreshWishlist(); });
+  }
   const viewport = window.visualViewport;
   if (viewport && nav) {
     const updateKeyboardState = () => nav.classList.toggle('keyboard-open', window.innerHeight - viewport.height > 150);

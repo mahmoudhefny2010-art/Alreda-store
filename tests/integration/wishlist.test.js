@@ -8,7 +8,7 @@ const { createCustomerAuthRepository } = require('../../src/repositories/custome
 const { createCartRepository } = require('../../src/repositories/cart.repository');
 const { createWishlistRepository } = require('../../src/repositories/wishlist.repository');
 
-let database; let owner; let other; let auth; let carts; let favorites; let app; let product; let variants; let fixture;
+let database; let owner; let other; let auth; let carts; let favorites; let app; let product; let variants; let fixture; let catalogProvider;
 const logger = { error: vi.fn() };
 
 beforeAll(async () => {
@@ -24,9 +24,10 @@ beforeAll(async () => {
     variants: variants.map((variant, index) => ({ databaseId: variant.id, id: variant.source_id, title: variant.title, titleAr: variant.title, options: [variant.title], priceAmount: `${400 + 100 * index}.00`, compareAtAmount: index ? '600.00' : null, inventoryQuantity: variant.stock_quantity, publicAvailable: variant.stock_quantity > 0, imageId: null })),
   };
   fixture = { persistent: true, products: new Map([[product.id, record], [product.source_id, record]]), bySlug: new Map([[product.slug, record]]), categories: [], byCategory: new Map(), catalog: { products: [record] } };
+  catalogProvider = vi.fn(async () => fixture);
   app = createApp({ environment: 'test', logger, whatsappSettings: {}, mediaSettings: {}, authSettings: { SESSION_SECRET: 'wishlist-test-session-secret-that-is-long-enough' },
     authRepository: auth, cartRepository: carts, wishlistRepository: favorites, orders: { policy: { enabled: false, shippingRates: {} } },
-    catalogProvider: async () => fixture,
+    catalogProvider,
   });
 }, 120000);
 
@@ -46,6 +47,7 @@ describe('persistent customer wishlist', () => {
 
     const ownerCookie = await sessionCookie(owner); const otherCookie = await sessionCookie(other);
     const ownerList = await request(app).get('/api/wishlist').set('Cookie', ownerCookie).expect(200);
+    expect(catalogProvider).toHaveBeenLastCalledWith([product.id]);
     expect(ownerList.body.items).toHaveLength(1);
     expect(ownerList.body.items[0]).toMatchObject({ id: product.id, name: 'Synthetic faucet', hasOptions: true, outOfStock: false });
     expect(ownerList.body.items[0].variants.find(value => value.title === 'Silver')).toMatchObject({ available: false });

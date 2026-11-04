@@ -4,7 +4,7 @@ const { readDatabaseConfig } = require('../config/database');
 const { getPrismaClient } = require('../config/prisma');
 const { activeDiscounts, effectivePrice } = require('./discount.service');
 const { variantPrice, variantColor } = require('./purchase-selection.service');
-let pendingDatabaseRead;
+const pendingDatabaseReads = new Map();
 let pendingHomepageRead;
 const catalog = createMediaDelivery().applyCatalog(require('../config/catalog.json'));
 const products = new Map(catalog.products.map(product => [product.sourceId, product]));
@@ -41,16 +41,18 @@ function parseJson(value, fallback) {
   try { return JSON.parse(value); } catch { return fallback; }
 }
 
-async function getDatabaseCatalog() {
+async function getDatabaseCatalog(productIds = null) {
   if (!readDatabaseConfig().enabled) return { catalog, products, bySlug, categories, byCategory, sections: fallbackSections };
-  if (pendingDatabaseRead) return pendingDatabaseRead;
-  const read = loadDatabaseCatalog();
-  pendingDatabaseRead = read;
+  const identifiers = Array.isArray(productIds) ? [...new Set(productIds)].sort() : null;
+  const key = identifiers ? identifiers.join(',') : '*';
+  if (pendingDatabaseReads.has(key)) return pendingDatabaseReads.get(key);
+  const read = loadDatabaseCatalog(identifiers);
+  pendingDatabaseReads.set(key, read);
   try {
     // Inventory, prices and catalog edits must be fresh on the next request,
     // including when another application instance committed the change.
     return await read;
-  } finally { if (pendingDatabaseRead === read) pendingDatabaseRead = null; }
+  } finally { if (pendingDatabaseReads.get(key) === read) pendingDatabaseReads.delete(key); }
 }
 
 async function getDatabaseHomepage() {
@@ -90,16 +92,18 @@ async function loadDatabaseHomepage() {
     sections: sectionRows.map(row => ({ ...row, titleEn: row.title_en, titleAr: row.title_ar })) };
 }
 
-async function loadDatabaseCatalog() {
+async function loadDatabaseCatalog(productIds = null) {
   const client = getPrismaClient();
   const [categoryRows, productRows, discountRules, sectionRows] = await Promise.all([
     client.categories.findMany({ where: { is_active: true }, select: {
       id: true, source_id: true, slug: true, name: true, name_ar: true, description: true, description_ar: true,
       image_url: true, home_section_id: true, homepage_order: true,
       home_section: { select: { id: true, slug: true } },
-      product_categories: { select: { products: { select: { id: true, source_id: true } } } },
+      ...(!productIds ? { product_categories: { select: { products: { select: { id: true, source_id: true } } } } } : {}),
     } }),
-    client.products.findMany({ select: {
+    client.products.findMany({ ...(productIds ? { where: { OR: [
+      { id: { in: productIds } }, { source_id: { in: productIds } },
+    ] } } : {}), select: {
       id: true, source_id: true, category_id: true, name: true, name_ar: true, slug: true, description: true,
       description_ar: true, price_egp: true, sale_price_egp: true, image_url: true, is_available: true, stock_quantity: true,
       catalog_details: { select: { presentation: true, color_en: true, type_en: true } },
@@ -119,7 +123,7 @@ async function loadDatabaseCatalog() {
   ]);
   const savedCategories = categoryRows.map(row => {
     const original = categories.find(value => value.sourceId === row.source_id) || {};
-    const productIds = row.product_categories.map(link => link.products.source_id || link.products.id);
+    const productIds = (row.product_categories || []).map(link => link.products.source_id || link.products.id);
     const originalOrder = original.productIds || [];
     productIds.sort((left, right) => {
       const a = originalOrder.indexOf(left); const b = originalOrder.indexOf(right);
@@ -194,5 +198,5 @@ async function loadDatabaseCatalog() {
     bySlug: savedProductsBySlug, categories: savedCategories, byCategory: savedCategoriesBySlug };
 }
 
-function invalidateDatabaseCatalog() { pendingDatabaseRead = null; pendingHomepageRead = null; }
+function invalidateDatabaseCatalog() { pendingDatabaseReads.clear(); pendingHomepageRead = null; }
 module.exports = { catalog, products, bySlug, categories, byCategory, getDatabaseCatalog, getDatabaseHomepage, invalidateDatabaseCatalog };

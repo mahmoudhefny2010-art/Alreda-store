@@ -37,7 +37,7 @@
   <% } else if (typeof googleAuthEnabled !== 'undefined' && googleAuthEnabled) { %><a class="button google-sign-in" href="/auth/google"><%= t('continueWithGoogle') %></a>
   <% } else { %><p><%= t('googleAuthUnavailable') %></p><% } %>
 </dialog>
-<dialog id="bag-dialog" class="shop-dialog" aria-labelledby="bag-title" data-cart-dialog data-empty-text="<%= t('bagEmpty') %>" data-remove-text="<%= t('cartRemove') %>" data-total-text="<%= t('cartTotal') %>" data-error-text="<%= t('cartError') %>" data-added-text="<%= t('cartAdded') %>" data-unavailable-text="<%= t('cartUnavailable') %>"><form method="dialog" class="dialog-top"><h2 id="bag-title"><%= t('bag') %></h2><button class="icon-button" aria-label="<%= t('close') %>">×</button></form>
+<dialog id="bag-dialog" class="shop-dialog" aria-labelledby="bag-title" data-cart-dialog data-empty-text="<%= t('bagEmpty') %>" data-remove-text="<%= t('cartRemove') %>" data-total-text="<%= t('cartTotal') %>" data-error-text="<%= t('cartError') %>" data-added-text="<%= t('cartAdded') %>" data-unavailable-text="<%= t('cartUnavailable') %>" data-out-of-stock-text="<%= t('cartOutOfStock') %>" data-stock-warning-text="<%= t('cartQuantityChanged') %>"><form method="dialog" class="dialog-top"><h2 id="bag-title"><%= t('bag') %></h2><button class="icon-button" aria-label="<%= t('close') %>">×</button></form>
   <p class="bag-status" data-cart-status role="status"></p><ul class="bag-items" data-cart-items></ul><p class="bag-total" data-cart-total></p>
   <div class="bag-actions"><a class="button" href="/checkout" data-cart-checkout><%= typeof customer !== 'undefined' && customer ? t('checkoutTitle') : t('continueWithGoogle') %></a>
   <a class="text-link" href="/#collections"><%= t('browseCollections') %></a></div>

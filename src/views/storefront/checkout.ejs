@@ -1,5 +1,5 @@
-<link rel="stylesheet" href="/assets/css/pages/checkout.css?v=order-summary-20261103-3">
-<script src="/assets/js/checkout.js?v=checkout-retry-20261104-1" defer></script>
+<link rel="stylesheet" href="/assets/css/pages/checkout.css?v=live-inventory-refresh-20261104-1">
+<script src="/assets/js/checkout.js?v=live-inventory-refresh-20261104-1" defer></script>
 <% const text = (en, ar) => locale === 'ar' ? ar : en; const account = typeof customer !== 'undefined' ? customer : null; const pay = typeof instapay === 'undefined' ? { enabled:false } : instapay; const saved = typeof savedDetails !== 'undefined' ? savedDetails : {}; %>
 <section class="checkout-page container">
   <header class="checkout-heading"><a class="text-link" href="/products">← <%= t('continueBrowsing') %></a><h1><%= t('checkoutTitle') %></h1></header>
@@ -20,7 +20,9 @@
     data-location-busy="<%= text('Finding your address…', 'جارٍ تحديد عنوانك…') %>"
     data-location-lookup-failed="<%= text('Location attached, but the written address could not be found. Please type your address below.', 'تم إرفاق الموقع، لكن تعذّر معرفة العنوان المكتوب. اكتبه بالأسفل.') %>" data-location-kept="<%= text('Location attached. Your edited address has been kept.', 'تم إرفاق الموقع والاحتفاظ بالعنوان الذي كتبته.') %>"
     data-location-error="<%= text('Your location could not be found. Try again or type your delivery address.', 'تعذّر تحديد موقعك. حاول مجددًا أو اكتب عنوان التوصيل يدويًا.') %>" data-location-denied="<%= text('Location permission was not granted. You can enable it in browser settings or enter your address manually.', 'لم يتم السماح بالموقع. يمكنك تفعيله من إعدادات المتصفح أو كتابة العنوان يدويًا.') %>"
-    data-location-unsupported="<%= text('Location unavailable. Enter your address.', 'الموقع غير متاح. اكتب عنوانك يدويًا.') %>">
+    data-location-unsupported="<%= text('Location unavailable. Enter your address.', 'الموقع غير متاح. اكتب عنوانك يدويًا.') %>"
+    data-item-out-of-stock="<%= t('checkoutItemOutOfStock') %>" data-item-quantity-changed="<%= t('checkoutQuantityChanged') %>"
+    data-items-updated="<%= t('checkoutItemsUpdated') %>" data-item-removed="<%= t('checkoutItemRemoved') %>" data-inventory-refresh-error="<%= t('checkoutRefreshError') %>">
     <input type="hidden" data-insta-messages data-awaiting="<%= text('Order received. Awaiting payment review.', 'تم تسجيل طلبك وهو في انتظار مراجعة التحويل من الإدارة. لم يتم تأكيد الدفع أو الطلب بعد.') %>" data-uploading="<%= text('Uploading your screenshot securely…', 'جارٍ رفع صورة التحويل بأمان…') %>" data-uploaded="<%= text('Screenshot attached.', 'تم إرفاق الصورة. أكمل إرسال الطلب للمراجعة.') %>" data-upload-error="<%= text('The screenshot could not be uploaded. Use a JPG, PNG or WebP image under 5 MB and try again.', 'تعذّر رفع الصورة. استخدم صورة JPG أو PNG أو WebP أقل من ٥ ميجابايت وحاول مجددًا.') %>">
     <div class="checkout-layout"><div class="checkout-details">
     <fieldset><legend><span class="checkout-step">1</span> <%= text('Contact details', 'بيانات التواصل') %></legend>
@@ -46,8 +48,8 @@
     <fieldset><legend><%= text('Order summary', 'ملخص الطلب') %></legend>
       <% if (!products.length) { %><p><%= t('noInventoryItems') %></p><% } %>
       <% for (const product of products) { const price = product.sale_price_egp ?? product.price_egp; const name = locale === 'ar' ? product.name_ar || product.name : product.name; %>
-        <label class="checkout-product"><% if (product.image_url) { %><img src="<%= product.image_url %>" alt="" width="56" height="64" loading="lazy"><% } else { %><span class="checkout-product-placeholder" aria-hidden="true">▢</span><% } %><span class="checkout-product-name"><%= name %><small><%= formatPrice(String(price) + '.00', locale) %></small></span>
-          <span class="checkout-quantity"><small><%= t('quantity') %></small><input type="number" value="<%= cartQuantities?.[product.variant_id || product.id] || 0 %>" min="0" max="<%= Math.min(product.stock_quantity, 50) %>" data-product-id="<%= product.id %>" data-variant-id="<%= product.variant_id || '' %>" data-price="<%= price %>" aria-label="<%= t('quantity') %>: <%= name %>"></span>
+        <label class="checkout-product"><% if (product.image_url) { %><img src="<%= product.image_url %>" alt="" width="56" height="64" loading="lazy" data-checkout-product-image><% } else { %><span class="checkout-product-placeholder" aria-hidden="true">▢</span><% } %><span class="checkout-product-name"><span data-checkout-product-name><%= name %></span><small><%= formatPrice(String(price) + '.00', locale) %></small></span>
+          <span class="checkout-quantity"><small><%= t('quantity') %></small><input type="number" value="<%= cartQuantities?.[product.variant_id || product.id] || 0 %>" min="0" max="<%= Math.min(product.stock_quantity, 50) %>" data-product-id="<%= product.id %>" data-variant-id="<%= product.variant_id || '' %>" data-price="<%= price %>" data-stock="<%= product.stock_quantity %>" data-available="<%= product.is_available !== false && product.stock_quantity > 0 ? 'true' : 'false' %>" data-cart-managed="<%= cartQuantities?.[product.variant_id || product.id] ? 'true' : 'false' %>" aria-label="<%= t('quantity') %>: <%= name %>"><small class="checkout-stock-warning" data-checkout-stock-status hidden></small></span>
         </label>
       <% } %>
       <dl class="checkout-totals"><div><dt><%= t('cartTotal') %></dt><dd data-checkout-subtotal></dd></div><div><dt><%= t('shipping') %></dt><dd data-checkout-shipping></dd></div><div class="checkout-grand-total"><dt><%= t('total') %></dt><dd id="checkout-total" aria-live="polite"></dd></div></dl>

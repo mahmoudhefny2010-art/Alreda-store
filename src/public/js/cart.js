@@ -13,6 +13,21 @@
   let revision = 0;
   const locale = document.documentElement.lang || 'en';
   const price = value => new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-EG', { style: 'currency', currency: 'EGP' }).format(value);
+  const refreshInterval = 5 * 60 * 1000;
+  let cartSignature = '';
+  let cartLoaded = false;
+  let lastRefreshAt = 0;
+  let refreshing = false;
+
+  function snapshot(cart) {
+    return JSON.stringify((cart.cart_items || []).map(item => {
+      const product = item.products;
+      const variant = item.product_variants;
+      return [item.product_id, item.variant_id, item.quantity, product.name, product.name_ar, product.image_url,
+        product.price_egp, product.sale_price_egp, product.stock_quantity, product.is_available,
+        variant?.price_egp, variant?.stock_quantity, variant?.is_available];
+    }));
+  }
 
   function added(holder) {
     if (!feedback) return;
@@ -34,13 +49,20 @@
   }
 
   function render(cart) {
+    const nextSignature = snapshot(cart);
+    if (cartLoaded && nextSignature === cartSignature) return false;
     revision++;
+    cartSignature = nextSignature;
+    cartLoaded = true;
     list.replaceChildren();
     let subtotal = 0;
     let count = 0;
     for (const item of cart.cart_items || []) {
       const product = item.products;
       const itemPrice = product.sale_price_egp ?? product.price_egp;
+      const variant = item.product_variants;
+      const availableStock = variant ? variant.stock_quantity : product.stock_quantity;
+      const itemAvailable = product.is_available !== false && variant?.is_available !== false && Number.isInteger(availableStock) && availableStock > 0;
       subtotal += itemPrice * item.quantity;
       count += item.quantity;
       const row = document.createElement('li');
@@ -61,6 +83,16 @@
       name.textContent = locale === 'ar' ? product.name_ar || product.name : product.name;
       const quantity = document.createElement('span'); quantity.className = 'bag-item-quantity';
       quantity.textContent = `${item.quantity} × ${price(itemPrice)}`;
+      if (!itemAvailable || availableStock < item.quantity) {
+        const warning = document.createElement('small');
+        warning.className = 'bag-stock-warning';
+        warning.textContent = !itemAvailable
+          ? dialog.dataset.outOfStockText
+          : dialog.dataset.stockWarningText.replace('{quantity}', new Intl.NumberFormat(locale).format(availableStock));
+        details.append(name, quantity, warning);
+      } else {
+        details.append(name, quantity);
+      }
       const lineTotal = document.createElement('span'); lineTotal.className = 'bag-item-price'; lineTotal.textContent = price(itemPrice * item.quantity);
       const remove = document.createElement('button');
       remove.type = 'button'; remove.className = 'bag-remove'; remove.textContent = dialog.dataset.removeText;
@@ -71,7 +103,7 @@
         catch { status.textContent = dialog.dataset.errorText; }
         finally { remove.disabled = false; }
       });
-      details.append(name, quantity, remove); row.append(photo, details, lineTotal); list.append(row);
+      details.append(remove); row.append(photo, details, lineTotal); list.append(row);
     }
     badges.forEach(badge => { badge.textContent = count > 99 ? '99+' : String(count); badge.hidden = count === 0; });
     bagButtons.forEach(bagButton => bagButton.setAttribute('aria-label', count ? `${bagButton.dataset.bagLabel}: ${new Intl.NumberFormat(locale).format(count)}` : bagButton.dataset.bagLabel));
@@ -80,12 +112,23 @@
     if (count) { const label = document.createElement('span'); label.textContent = dialog.dataset.totalText; const amount = document.createElement('strong'); amount.textContent = price(subtotal); total.append(label, amount); }
     const checkout = dialog.querySelector('[data-cart-checkout]');
     if (checkout) checkout.hidden = count === 0;
+    lastRefreshAt = Date.now();
+    return true;
   }
 
-  async function refresh() {
+  async function refresh(quiet = false) {
+    if (refreshing) return;
     const started = revision;
-    try { const cart = await request('/api/cart'); if (started === revision) render(cart); }
-    catch { if (started === revision) status.textContent = dialog.dataset.errorText; }
+    refreshing = true;
+    try {
+      const cart = await request('/api/cart');
+      if (started === revision) { render(cart); lastRefreshAt = Date.now(); }
+    } catch { if (started === revision && (!quiet || dialog.open)) status.textContent = dialog.dataset.errorText; }
+    finally { refreshing = false; }
+  }
+
+  function refreshIfDue() {
+    if (!document.hidden && Date.now() - lastRefreshAt >= refreshInterval) refresh(true);
   }
 
   document.querySelectorAll('.add-to-cart[data-product-id]').forEach(button => {
@@ -113,4 +156,7 @@
   document.addEventListener('cart:refresh', refresh);
   if (badges.length) refresh();
   window.addEventListener('pageshow', event => { if (event.persisted && badges.length) refresh(); });
+  window.setInterval(refreshIfDue, refreshInterval);
+  document.addEventListener('visibilitychange', refreshIfDue);
+  window.addEventListener('focus', refreshIfDue);
 })();

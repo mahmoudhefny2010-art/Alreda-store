@@ -11,6 +11,7 @@
 .bag-item-details{display:grid;gap:6px;min-width:0}
 .bag-item-name{font-size:14px;font-weight:500;line-height:1.5;overflow-wrap:anywhere}
 .bag-item-quantity{font-size:12px;color:#666}
+.bag-stock-warning{font-size:12px;line-height:1.45;color:#8b3f32}
 .bag-item-price{font-size:14px;font-weight:600;white-space:nowrap}
 #bag-dialog .bag-remove{justify-self:start;min-height:32px;padding:2px 0;border:0;background:none;color:#777;font-size:12px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 #bag-dialog .bag-remove:hover{color:#222}

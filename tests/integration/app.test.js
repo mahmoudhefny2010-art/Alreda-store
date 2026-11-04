@@ -13,6 +13,8 @@ describe('Phase 1 HTTP application', () => {
     expect(response.text).not.toContain('<%=');
     expect(response.headers['x-powered-by']).toBeUndefined();
     expect(response.headers['content-security-policy']).toContain("script-src 'self'");
+    expect(response.text).toContain('/assets/js/vercel-analytics-bootstrap.js');
+    expect(response.text).not.toContain('window.va =');
   });
   it('redirects old collection preview links to the dedicated page', async () => {
     await request(app).get('/?collection=mirrors').expect(302).expect('Location', '/collections/mirrors');
@@ -53,7 +55,7 @@ describe('Phase 1 HTTP application', () => {
     expect(response.text).not.toContain(translate('en', 'checkoutUnavailable'));
     expect(response.text).not.toContain('Synthetic Buyer');
   });
-  it.each([['/assets/css/main.css', /css/], ['/assets/css/base/variables.css', /css/], ['/assets/js/main.js', /javascript/]])('serves %s', async (url, type) => {
+  it.each([['/assets/css/main.css', /css/], ['/assets/css/base/variables.css', /css/], ['/assets/js/main.js', /javascript/], ['/assets/js/vercel-analytics-bootstrap.js', /javascript/]])('serves %s', async (url, type) => {
     await request(app).get(url).expect(200).expect('Content-Type', type);
   });
   it('returns a helpful 404 without reflecting attacker input', async () => {

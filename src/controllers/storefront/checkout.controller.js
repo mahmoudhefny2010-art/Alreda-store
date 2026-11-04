@@ -27,7 +27,8 @@ function createCheckoutController({ service, repository, cartRepository, notific
       const savedDetails = savedCheckoutDetails(await repository.latestCustomerOrder(res.locals.orderUserId), policy.shippingRates);
       const cart = cartRepository ? await cartRepository.get({ userId: res.locals.orderUserId }) : null;
       const cartQuantities = Object.fromEntries((cart?.cart_items || []).map(item => [item.variant_id || item.product_id, item.quantity]));
-      if (cart?.cart_items?.length) products = cart.cart_items.map(item => ({ ...item.products, variant_id: item.variant_id, stock_quantity: item.product_variants?.stock_quantity ?? item.products.stock_quantity }));
+      if (cart?.cart_items?.length) products = cart.cart_items.map(item => ({ ...item.products, variant_id: item.variant_id,
+        stock_quantity: item.product_variants ? item.product_variants.stock_quantity : item.products.stock_quantity }));
       res.render('layouts/storefront', { title: res.locals.t('checkoutTitle'), contentView: '../storefront/checkout', products, cartQuantities, savedDetails, policy, instapay, requestKey: randomUUID() });
     },
     async create(req, res) {

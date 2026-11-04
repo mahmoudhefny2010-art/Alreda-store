@@ -117,6 +117,97 @@
     if (delivery) delivery.textContent = money(shipping);
     const instaAmount = paymentDialog?.querySelector('[data-instapay-amount]'); if (instaAmount) instaAmount.textContent = money(total());
   }
+  const inventoryInputs = [...form.querySelectorAll('[data-product-id]')];
+  const inventoryRefreshInterval = 5 * 60 * 1000;
+  let inventoryRefreshing = false;
+  let lastInventoryRefreshAt = Date.now();
+  function showStockWarning(input) {
+    const warning = input.closest('.checkout-quantity')?.querySelector('[data-checkout-stock-status]');
+    if (!warning) return;
+    const stock = Number(input.dataset.stock);
+    const available = input.dataset.available === 'true';
+    warning.textContent = input.dataset.removed === 'true'
+      ? msg('itemRemoved')
+      : !available ? msg('itemOutOfStock')
+        : Number(input.value) > stock ? msg('itemQuantityChanged', { quantity: new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-EG').format(stock) }) : '';
+    warning.hidden = !warning.textContent;
+  }
+  for (const input of inventoryInputs) {
+    const row = input.closest('.checkout-product');
+    input.dataset.liveState = JSON.stringify([
+      Number(input.dataset.price), Number(input.dataset.stock), input.dataset.available,
+      row?.querySelector('[data-checkout-product-name]')?.textContent || '',
+      row?.querySelector('[data-checkout-product-image]')?.getAttribute('src') || '',
+    ]);
+    showStockWarning(input);
+  }
+  async function refreshInventory() {
+    if (busy || inventoryRefreshing || document.hidden) return;
+    inventoryRefreshing = true;
+    try {
+      const response = await fetch('/api/cart', { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(10000) });
+      if (!response.ok) throw new Error('CART_UNAVAILABLE');
+      const cart = await response.json();
+      const items = new Map((cart.cart_items || []).map(item => [item.variant_id || item.product_id, item]));
+      let changed = false;
+      for (const input of inventoryInputs) {
+        const key = input.dataset.variantId || input.dataset.productId;
+        const item = items.get(key);
+        if (!item) {
+          if (input.dataset.cartManaged === 'true' && input.dataset.removed !== 'true') {
+            input.dataset.removed = 'true';
+            showStockWarning(input);
+            changed = true;
+          }
+          continue;
+        }
+        const product = item.products;
+        const variant = item.product_variants;
+        const stock = variant ? variant.stock_quantity : product.stock_quantity;
+        const available = product.is_available !== false && variant?.is_available !== false && Number.isInteger(stock) && stock > 0;
+        const unitPrice = product.sale_price_egp ?? product.price_egp;
+        const name = locale === 'ar' ? product.name_ar || product.name : product.name;
+        const image = product.image_url || '';
+        const signature = JSON.stringify([Number(unitPrice), stock, String(available), name, image]);
+        if (input.dataset.liveState === signature && input.dataset.removed !== 'true') continue;
+        input.dataset.liveState = signature;
+        input.dataset.price = String(unitPrice);
+        input.dataset.stock = String(stock);
+        input.dataset.available = String(available);
+        delete input.dataset.removed;
+        input.max = String(Math.min(Number.isInteger(stock) && stock > 0 ? stock : 0, 50));
+        const row = input.closest('.checkout-product');
+        const productName = row?.querySelector('[data-checkout-product-name]');
+        if (productName) productName.textContent = name;
+        const priceLabel = row?.querySelector('.checkout-product-name small');
+        if (priceLabel) priceLabel.textContent = money(unitPrice);
+        let imageElement = row?.querySelector('[data-checkout-product-image]');
+        if (image) {
+          if (!imageElement) {
+            imageElement = document.createElement('img');
+            imageElement.width = 56; imageElement.height = 64; imageElement.loading = 'lazy'; imageElement.alt = '';
+            imageElement.dataset.checkoutProductImage = '';
+            row?.querySelector('.checkout-product-name')?.before(imageElement);
+          }
+          imageElement.src = image;
+        } else if (imageElement) imageElement.remove();
+        showStockWarning(input);
+        changed = true;
+      }
+      if (changed) {
+        refreshTotal();
+        status.textContent = msg('itemsUpdated');
+      } else if (status.textContent === msg('inventoryRefreshError')) {
+        status.textContent = '';
+      }
+      lastInventoryRefreshAt = Date.now();
+    } catch {
+      status.textContent = msg('inventoryRefreshError');
+    } finally { inventoryRefreshing = false; }
+  }
+  function refreshInventoryIfDue() {
+    if (!document.hidden && Date.now() - lastInventoryRefreshAt >= inventoryRefreshInterval) refreshInventory();
+  }
   function setBusy(value) { busy = value; updatePaymentState(); check.disabled = value; if (locationButton) locationButton.disabled = value || locating; form.setAttribute('aria-busy', String(value)); }
   function display(data, silent = false) {
     if (data.state === 'cancelled' && data.order?.reference) {
@@ -188,7 +279,10 @@
   nameField.addEventListener('input', validateContact);
   phoneField.addEventListener('input', validateContact);
   validateContact();
-  form.addEventListener('input', refreshTotal);
+  form.addEventListener('input', event => {
+    refreshTotal();
+    if (event.target.matches('[data-product-id]')) showStockWarning(event.target);
+  });
   form.addEventListener('change', refreshTotal);
   form.addEventListener('submit', async event => {
     event.preventDefault(); if (busy || locating || paymentMethod() === 'INSTAPAY' && (!paymentProofId || uploadingProof) || !form.reportValidity()) return;
@@ -235,5 +329,9 @@
     location.reload();
   });
   refreshTotal();
+  window.setInterval(refreshInventoryIfDue, inventoryRefreshInterval);
+  document.addEventListener('visibilitychange', refreshInventoryIfDue);
+  window.addEventListener('focus', refreshInventoryIfDue);
+  window.addEventListener('pageshow', event => { if (event.persisted) refreshInventoryIfDue(); });
   if (previousRequest) recover(true); else setBusy(false);
 })();
