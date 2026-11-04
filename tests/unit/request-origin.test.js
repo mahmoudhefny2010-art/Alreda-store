@@ -23,4 +23,9 @@ describe('same-origin request validation', () => {
     expect(sameOrigin(request({ fetchSite: 'same-site' }))).toBe(false);
     expect(sameOrigin(request())).toBe(false);
   });
+
+  it('accepts HTTPS browser origins when a trusted proxy reports the same request as HTTP', () => {
+    expect(sameOrigin(request({ origin: 'https://store.example', host: 'store.example', protocol: 'http', env: 'production', fetchSite: 'same-origin' }))).toBe(true);
+    expect(sameOrigin(request({ origin: 'https://store.example', host: 'store.example', protocol: 'http', env: 'production' }))).toBe(false);
+  });
 });

@@ -18,7 +18,8 @@ function sameOrigin(req) {
   try {
     const actual = new URL(supplied);
     const expected = new URL(`${req.protocol}://${req.get('host')}`);
-    if (actual.username || actual.password || actual.origin === 'null' || actual.protocol !== expected.protocol) return false;
+    if (actual.username || actual.password || actual.origin === 'null' || !['http:', 'https:'].includes(actual.protocol)) return false;
+    if (actual.protocol !== expected.protocol && fetchSite !== 'same-origin') return false;
     if (actual.origin === expected.origin) return true;
     // Allow localhost/127.0.0.1 aliases only on the local development server.
     const loopback = name => ['localhost', '127.0.0.1', '[::1]'].includes(name);
