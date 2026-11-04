@@ -2,7 +2,7 @@
 .product-page [hidden] { display: none !important; }
 .product-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(28px, 4vw, 56px); align-items: start; }
 .product-gallery { position: sticky; top: 24px; min-width: 0; width: 100%; max-width: 420px; margin-inline: auto; }
-.product-main-image { display: block; position: relative; width: 100%; aspect-ratio: 1; height: auto; max-height: 420px; padding: 8px; overflow: hidden; border: 1px solid #eee; border-radius: 8px; background: #fff; cursor: zoom-in; }
+.product-main-image { display: block; position: relative; width: 100%; aspect-ratio: 1; height: auto; max-height: 420px; padding: 8px; overflow: hidden; border: 1px solid #eee; border-radius: 8px; background: #fff; cursor: zoom-in; touch-action: pan-y pinch-zoom; }
 .product-main-image img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .product-main-image > span { position: absolute; inset-block-end: 10px; inset-inline-end: 10px; padding: 5px 9px; border-radius: 4px; background: #fffffff0; color: #555; font-size: 11px; pointer-events: none; }
 .product-thumbnails { display: flex; gap: 8px; margin-block-start: 10px; overflow-x: auto; padding: 3px; }

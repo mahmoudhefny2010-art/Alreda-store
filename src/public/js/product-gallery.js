@@ -32,6 +32,35 @@
     if (candidate) renderVariant(candidate, true);
     selectPhoto(button);
   }));
+  const swipeSurface = root.querySelector('[data-gallery-open]');
+  if (swipeSurface && thumbnails.length > 1) {
+    let touchStart = null;
+    let suppressClick = false;
+    swipeSurface.addEventListener('pointerdown', event => {
+      if (event.pointerType !== 'touch' || !event.isPrimary) return;
+      touchStart = { x: event.clientX, y: event.clientY, id: event.pointerId };
+      suppressClick = false;
+    });
+    swipeSurface.addEventListener('pointerup', event => {
+      if (!touchStart || event.pointerId !== touchStart.id) return;
+      const horizontal = event.clientX - touchStart.x;
+      const vertical = event.clientY - touchStart.y;
+      touchStart = null;
+      if (Math.abs(horizontal) < 45 || Math.abs(horizontal) < Math.abs(vertical) * 1.2) return;
+      suppressClick = true;
+      window.setTimeout(() => { suppressClick = false; }, 0);
+      const selectedIndex = thumbnails.findIndex(button => button.getAttribute('aria-pressed') === 'true');
+      const next = thumbnails[selectedIndex + (horizontal < 0 ? 1 : -1)];
+      next?.click();
+    });
+    swipeSurface.addEventListener('pointercancel', () => { touchStart = null; });
+    swipeSurface.addEventListener('click', event => {
+      if (!suppressClick) return;
+      suppressClick = false;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
+  }
   const lightbox = root.querySelector('.product-lightbox');
   const opener = root.querySelector('[data-gallery-open]');
   opener?.addEventListener('click', () => {

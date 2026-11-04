@@ -3,6 +3,7 @@ const catalog = require('../../src/config/catalog.json');
 const rack = catalog.products.find(product => product.slug === 'delight-magic-hidden-clothes-drying-rack-stainless');
 const incomplete = catalog.products.find(product => product.variants.some(variant => variant.imageId && variant.imageId !== product.gallery[0].sourceId)
   && product.variants.some(variant => !variant.imageId));
+const swipeProduct = catalog.products.find(product => product.gallery.length > 1);
 async function choose(page, variant) {
   for (const [index, value] of variant.options.entries()) {
     const input = page.locator(`[data-option-index="${index}"]`).getByRole('radio', { name: value, exact: true });
@@ -14,11 +15,17 @@ async function choose(page, variant) {
     }
   }
 }
+async function dismissWelcomeDialog(page) {
+  const dialog = page.locator('[data-welcome-dialog]');
+  await expect(dialog).toBeVisible();
+  await dialog.locator('[data-welcome-close]').click();
+}
 for (const width of [1440, 390]) {
   test(`color and size select the associated photo at ${width}px`, async ({ page }) => {
     test.setTimeout(60000);
     await page.setViewportSize({ width, height: 900 });
     await page.goto(`/products/${rack.slug}`);
+    await dismissWelcomeDialog(page);
     const main = page.locator('#product-main-photo');
     // Exercise both colors and sizes, then return to the initial combination.
     for (const variant of [...rack.variants.slice(1), rack.variants[0]]) {
@@ -44,6 +51,7 @@ for (const width of [1440, 390]) {
   test(`an option without its own image resets the photo at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(`/products/${incomplete.slug}`);
+    await dismissWelcomeDialog(page);
     const mapped = incomplete.variants.find(variant => variant.imageId && variant.imageId !== incomplete.gallery[0].sourceId);
     const unmapped = incomplete.variants.find(variant => !variant.imageId);
     await choose(page, mapped);
@@ -55,3 +63,32 @@ for (const width of [1440, 390]) {
     await expect(page.locator('#product-main-photo')).toHaveAttribute('data-original-src', incomplete.gallery[0].src);
   });
 }
+
+test('mobile touch swipes move to the next gallery photo without opening the lightbox', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  await page.goto(`/products/${swipeProduct.slug}`);
+  await dismissWelcomeDialog(page);
+  const thumbnails = page.locator('[data-gallery-src]');
+  const firstPhoto = swipeProduct.gallery[0];
+  const secondPhoto = swipeProduct.gallery[1];
+  await expect(thumbnails.nth(0)).toHaveAttribute('aria-pressed', 'true');
+
+  await page.locator('[data-gallery-open]').evaluate(surface => {
+    const bounds = surface.getBoundingClientRect();
+    const start = { x: bounds.left + bounds.width * 0.8, y: bounds.top + bounds.height / 2 };
+    const end = { x: start.x - 100, y: start.y, id: 17 };
+    surface.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', pointerId: end.id, isPrimary: true, clientX: start.x, clientY: start.y }));
+    surface.dispatchEvent(new PointerEvent('pointerup', { pointerType: 'touch', pointerId: end.id, isPrimary: true, clientX: end.x, clientY: end.y }));
+    surface.click();
+  });
+
+  await expect(page.locator('#product-main-photo')).toHaveAttribute('data-original-src', secondPhoto.src);
+  await expect(thumbnails.nth(1)).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.product-lightbox')).not.toHaveAttribute('open', '');
+  await expect(page.locator('#product-main-photo')).not.toHaveAttribute('data-original-src', firstPhoto.src);
+
+  await page.getByRole('button', { name: 'Enlarge product image' }).click();
+  await expect(page.locator('.product-lightbox')).toHaveAttribute('open', '');
+  await context.close();
+});

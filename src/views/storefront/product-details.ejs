@@ -30,4 +30,4 @@
   <% if (relatedProducts.length) { %><section class="related-products" aria-labelledby="related-title"><div class="related-heading"><h2 id="related-title"><%= t('youMayLike') %></h2><a class="text-link" href="<%= category.href %>"><%= t('viewCollection') %> →</a></div><%- include('../partials/product-grid', { products: relatedProducts }) %></section><% } %>
   <% if (product.gallery.length) { %><dialog class="product-lightbox" aria-label="<%= t('enlargeImage') %>"><form method="dialog"><button class="icon-button" aria-label="<%= t('closeImage') %>">×</button></form><img alt="<%= product.name %>" width="1000" height="1000"></dialog><% } %>
 </div>
-<script src="/assets/js/product-gallery.js?v=color-prices-20261103-1" defer></script>
+<script src="/assets/js/product-gallery.js?v=mobile-gallery-swipe-20261104-1" defer></script>
