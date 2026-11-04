@@ -27,6 +27,43 @@ describe('customer Google authentication', () => {
     await request(disabled).get('/auth/google').expect(503);
   });
 
+  it('returns to checkout after Google sign-in and merges the guest cart', async () => {
+    const config = { enabled: true, clientId: 'client-id', clientSecret: 'client-secret', callbackUrl: 'http://127.0.0.1:3000/auth/google/callback', sessionSecret: 'x'.repeat(48), secureCookie: false };
+    const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const kid = `checkout-${crypto.randomUUID()}`;
+    const user = { id: 'customer-id', name: 'Buyer' };
+    const cartRepository = { mergeGuest: vi.fn().mockResolvedValue(undefined) };
+    const repository = {
+      consumeAuthRateLimit: async () => true,
+      authenticateGoogle: async () => user,
+      createSession: async () => ({ token: 's'.repeat(40), expiresAt: new Date(Date.now() + 3600000) }),
+    };
+    const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+    let idToken;
+    const fetchImpl = async url => {
+      if (url === 'https://oauth2.googleapis.com/token') return { ok: true, json: async () => ({ id_token: idToken }) };
+      return { ok: true, headers: { get: () => 'max-age=0' }, json: async () => ({ keys: [{ ...publicKey.export({ format: 'jwk' }), kid, use: 'sig' }] }) };
+    };
+    const app = require('express')();
+    app.use(createAuthRoutes({ config, repository, cartRepository, fetchImpl }));
+    const start = await request(app).get('/auth/google?returnTo=%2Fcheckout').expect(302);
+    const oauthCookie = start.headers['set-cookie'][0].split(';')[0];
+    const transaction = JSON.parse(Buffer.from(decodeURIComponent(oauthCookie.split('=')[1]).split('.')[0], 'base64url'));
+    const now = Math.floor(Date.now() / 1000);
+    const header = encode({ alg: 'RS256', kid });
+    const payload = encode({ iss: 'https://accounts.google.com', aud: config.clientId, sub: 'google-subject', email: 'buyer@example.invalid', email_verified: true, name: 'Buyer', nonce: transaction.nonce, exp: now + 300, iat: now });
+    const signingInput = `${header}.${payload}`;
+    idToken = `${signingInput}.${crypto.sign('RSA-SHA256', Buffer.from(signingInput), privateKey).toString('base64url')}`;
+
+    const callback = await request(app).get(`/auth/google/callback?state=${encodeURIComponent(transaction.state)}&code=synthetic-code`)
+      .set('Cookie', `${oauthCookie}; alreda_guest_cart=synthetic-guest-token`)
+      .expect(303)
+      .expect('Location', '/checkout');
+    expect(cartRepository.mergeGuest).toHaveBeenCalledWith(user.id, 'synthetic-guest-token');
+    expect(callback.headers['set-cookie'].join(';')).toContain('alreda_session=');
+    expect(callback.headers['set-cookie'].join(';')).toContain('alreda_guest_cart=;');
+  });
+
   it('limits authentication starts across repeated requests without retaining raw IP addresses', async () => {
     let count = 0; let storedKey = '';
     const limiter = createAuthRateLimiter({ clock: () => 60000, secret: 'x'.repeat(48), repository: { consumeAuthRateLimit: async (key, start, max) => { storedKey = key; count += 1; expect(start).toBeInstanceOf(Date); return count <= max; }, pruneAuthRateLimits: vi.fn() } });
