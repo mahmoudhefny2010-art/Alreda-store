@@ -32,3 +32,10 @@ docs/implementation-plan.md
 docs/commerce-verification.md
 docs/visit-ui.md
 docs/catalog-migration-report.md
+
+src/public/images/collections/
+src/public/images/catalog-preview/
+src/public/images/collection-previews/
+src/public/images/product-details/
+src/config/catalog-preview.json
+src/config/product-details-preview.json

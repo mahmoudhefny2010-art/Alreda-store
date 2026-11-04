@@ -1,154 +1,135 @@
-[
-  {
-    "sourceSlug": "delight-bathroom-accessories-individual-pieces",
-    "name": "Delight Bathroom Accessories – Individual Pieces",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/C9CDB1D2-1270-4DCF-87E3-B40FB4055045.jpg?v=1787999914&width=1500",
-    "slug": "individual-pieces",
-    "group": "primary",
-    "image": "/assets/images/collection-previews/individual-pieces.webp"
-  },
-  {
-    "sourceSlug": "luxury-bathroom-accessories-sets",
-    "name": "Luxury Bathroom Accessories Sets",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/IMG-2421.png?v=1788019342&width=1500",
-    "slug": "accessories-sets",
-    "group": "primary",
-    "image": "/assets/images/collection-previews/accessories-sets.webp"
-  },
-  {
-    "sourceSlug": "bathroom-mirrors",
-    "name": "Mirrors",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/IMG-6514.png?v=1787402400&width=1500",
-    "slug": "mirrors",
-    "group": "primary",
-    "image": "/assets/images/collection-previews/mirrors.webp"
-  },
-  {
-    "sourceSlug": "mirror-stand",
-    "name": "Mirror stand",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/06742463-135E-4109-953B-A1D39B298E52.png?v=1787415185&width=1500",
-    "slug": "mirror-stand",
-    "group": "primary",
-    "image": "/assets/images/collection-previews/mirror-stand.webp"
-  },
-  {
-    "sourceSlug": "paper-holder",
-    "name": "Paper Holder",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/6DF80669-A17B-47AD-84F8-A6A25F8CA505.png?v=1787230072&width=1500",
-    "slug": "paper-holder",
-    "group": "primary",
-    "image": "/assets/images/collection-previews/paper-holder.webp"
-  },
-  {
-    "sourceSlug": "soap-holder",
-    "name": "Soap holder",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/IMG-1947.jpg?v=1787234073&width=1500",
-    "slug": "soap-holder",
-    "group": "primary",
-    "image": "/assets/images/collection-previews/soap-holder.webp"
-  },
-  {
-    "sourceSlug": "soap-dispensers",
-    "name": "Soap Dispensers",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/IMG-2131.png?v=1787675774&width=1500",
-    "slug": "soap-dispensers",
-    "group": "primary",
-    "image": "/assets/images/collection-previews/soap-dispensers.webp"
-  },
-  {
-    "sourceSlug": "bathroom-clothes-hooks",
-    "name": "Bathroom Clothes Hooks",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/20B3CA49-73EA-4E41-A288-306FB6428069.png?v=1787602803&width=1500",
-    "slug": "bathroom-clothes-hooks",
-    "group": "primary",
-    "image": "/assets/images/collection-previews/bathroom-clothes-hooks.webp"
-  },
-  {
-    "sourceSlug": "bathtub-grab-bar",
-    "name": "Bathtub Grab Bar",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/IMG-2256.png?v=1787866156&width=1500",
-    "slug": "bathtub-grab-bar",
-    "group": "primary",
-    "image": "/assets/images/collection-previews/bathtub-grab-bar.webp"
-  },
-  {
-    "sourceSlug": "delight-shower-corner-shelf",
-    "name": "Shower Corner Shelf",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/IMG-2229.png?v=1787849278&width=1500",
-    "slug": "bathroom-shelves",
-    "group": "primary",
-    "image": "/assets/images/collection-previews/bathroom-shelves.webp"
-  },
-  {
-    "sourceSlug": "towel-racks",
-    "name": "Towel rack",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/IMG-2197.jpg?v=1787774916&width=1500",
-    "slug": "towel-holders",
-    "group": "primary",
-    "image": "/assets/images/collection-previews/towel-holders.webp"
-  },
-  {
-    "sourceSlug": "delight-toilet-brush-stainless-304",
-    "name": "Toilet Brush",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/IMG-2158.png?v=1787761690&width=1500",
-    "slug": "toilet-brush",
-    "group": "primary",
-    "image": "/assets/images/collection-previews/toilet-brush.webp"
-  },
-  {
-    "sourceSlug": "hand-dryer",
-    "name": "Hand Dryer",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/8C248ABC-5388-4B36-9A1E-946D7EF88692.png?v=1787331659&width=1500",
-    "slug": "hand-dryers",
-    "group": "primary",
-    "image": "/assets/images/collection-previews/hand-dryers.webp"
-  },
-  {
-    "sourceSlug": "hair-dryer",
-    "name": "Hair Dryer",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/5630B0E5-3E37-461B-AF51-8194815D0A4B.png?v=1787332135&width=1500",
-    "slug": "hair-dryers",
-    "group": "primary",
-    "image": "/assets/images/collection-previews/hair-dryers.webp"
-  },
-  {
-    "sourceSlug": "door-stoppers",
-    "name": "Door stoppers",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/EB65E868-DF97-40F4-8447-539291D50B4E.png?v=1787398959&width=1500",
-    "slug": "door-stoppers",
-    "group": "primary",
-    "image": "/assets/images/collection-previews/door-stoppers.webp"
-  },
-  {
-    "sourceSlug": "safe-box",
-    "name": "Safe Box",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/IMG-7032.png?v=1789228829&width=1500",
-    "slug": "safe-boxes",
-    "group": "secondary",
-    "image": "/assets/images/collection-previews/safe-boxes.webp"
-  },
-  {
-    "sourceSlug": "door-knobs",
-    "name": "Door handle",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/9BE7F2EF-41FF-42CE-8CBE-5C8568CCBB6C.jpg?v=1791806055&width=1500",
-    "slug": "door-handles",
-    "group": "secondary",
-    "image": "/assets/images/collection-previews/door-handles.webp"
-  },
-  {
-    "sourceSlug": "basket-%D8%A8%D8%A7%D8%B3%D9%83%D8%AA",
-    "name": "basket",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/D2FD0A5B-34C3-4688-BF50-C0849E6BC9DA.jpg?v=1791365178&width=1500",
-    "slug": "waste-bins",
-    "group": "secondary",
-    "image": "/assets/images/collection-previews/waste-bins.webp"
-  },
-  {
-    "sourceSlug": "hand-dryer",
-    "name": "Hotel Accessories",
-    "sourceImage": "https://alredastore.com/cdn/shop/collections/8C248ABC-5388-4B36-9A1E-946D7EF88692.png?v=1787331659&width=1500",
-    "slug": "hotel-accessories",
-    "group": "legacy",
-    "image": "/assets/images/collection-previews/hand-dryers.webp"
-  }
+﻿[
+    {
+        "sourceSlug":  "delight-bathroom-accessories-individual-pieces",
+        "name":  "Delight Bathroom Accessories â€“ Individual Pieces",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/C9CDB1D2-1270-4DCF-87E3-B40FB4055045.jpg?v=1787999914\u0026width=1500",
+        "slug":  "individual-pieces",
+        "group":  "primary"
+    },
+    {
+        "sourceSlug":  "luxury-bathroom-accessories-sets",
+        "name":  "Luxury Bathroom Accessories Sets",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/IMG-2421.png?v=1788019342\u0026width=1500",
+        "slug":  "accessories-sets",
+        "group":  "primary"
+    },
+    {
+        "sourceSlug":  "bathroom-mirrors",
+        "name":  "Mirrors",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/IMG-6514.png?v=1787402400\u0026width=1500",
+        "slug":  "mirrors",
+        "group":  "primary"
+    },
+    {
+        "sourceSlug":  "mirror-stand",
+        "name":  "Mirror stand",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/06742463-135E-4109-953B-A1D39B298E52.png?v=1787415185\u0026width=1500",
+        "slug":  "mirror-stand",
+        "group":  "primary"
+    },
+    {
+        "sourceSlug":  "paper-holder",
+        "name":  "Paper Holder",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/6DF80669-A17B-47AD-84F8-A6A25F8CA505.png?v=1787230072\u0026width=1500",
+        "slug":  "paper-holder",
+        "group":  "primary"
+    },
+    {
+        "sourceSlug":  "soap-holder",
+        "name":  "Soap holder",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/IMG-1947.jpg?v=1787234073\u0026width=1500",
+        "slug":  "soap-holder",
+        "group":  "primary"
+    },
+    {
+        "sourceSlug":  "soap-dispensers",
+        "name":  "Soap Dispensers",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/IMG-2131.png?v=1787675774\u0026width=1500",
+        "slug":  "soap-dispensers",
+        "group":  "primary"
+    },
+    {
+        "sourceSlug":  "bathroom-clothes-hooks",
+        "name":  "Bathroom Clothes Hooks",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/20B3CA49-73EA-4E41-A288-306FB6428069.png?v=1787602803\u0026width=1500",
+        "slug":  "bathroom-clothes-hooks",
+        "group":  "primary"
+    },
+    {
+        "sourceSlug":  "bathtub-grab-bar",
+        "name":  "Bathtub Grab Bar",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/IMG-2256.png?v=1787866156\u0026width=1500",
+        "slug":  "bathtub-grab-bar",
+        "group":  "primary"
+    },
+    {
+        "sourceSlug":  "delight-shower-corner-shelf",
+        "name":  "Shower Corner Shelf",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/IMG-2229.png?v=1787849278\u0026width=1500",
+        "slug":  "bathroom-shelves",
+        "group":  "primary"
+    },
+    {
+        "sourceSlug":  "towel-racks",
+        "name":  "Towel rack",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/IMG-2197.jpg?v=1787774916\u0026width=1500",
+        "slug":  "towel-holders",
+        "group":  "primary"
+    },
+    {
+        "sourceSlug":  "delight-toilet-brush-stainless-304",
+        "name":  "Toilet Brush",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/IMG-2158.png?v=1787761690\u0026width=1500",
+        "slug":  "toilet-brush",
+        "group":  "primary"
+    },
+    {
+        "sourceSlug":  "hand-dryer",
+        "name":  "Hand Dryer",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/8C248ABC-5388-4B36-9A1E-946D7EF88692.png?v=1787331659\u0026width=1500",
+        "slug":  "hand-dryers",
+        "group":  "primary"
+    },
+    {
+        "sourceSlug":  "hair-dryer",
+        "name":  "Hair Dryer",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/5630B0E5-3E37-461B-AF51-8194815D0A4B.png?v=1787332135\u0026width=1500",
+        "slug":  "hair-dryers",
+        "group":  "primary"
+    },
+    {
+        "sourceSlug":  "door-stoppers",
+        "name":  "Door stoppers",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/EB65E868-DF97-40F4-8447-539291D50B4E.png?v=1787398959\u0026width=1500",
+        "slug":  "door-stoppers",
+        "group":  "primary"
+    },
+    {
+        "sourceSlug":  "safe-box",
+        "name":  "Safe Box",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/IMG-7032.png?v=1789228829\u0026width=1500",
+        "slug":  "safe-boxes",
+        "group":  "secondary"
+    },
+    {
+        "sourceSlug":  "door-knobs",
+        "name":  "Door handle",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/9BE7F2EF-41FF-42CE-8CBE-5C8568CCBB6C.jpg?v=1791806055\u0026width=1500",
+        "slug":  "door-handles",
+        "group":  "secondary"
+    },
+    {
+        "sourceSlug":  "basket-%D8%A8%D8%A7%D8%B3%D9%83%D8%AA",
+        "name":  "basket",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/D2FD0A5B-34C3-4688-BF50-C0849E6BC9DA.jpg?v=1791365178\u0026width=1500",
+        "slug":  "waste-bins",
+        "group":  "secondary"
+    },
+    {
+        "sourceSlug":  "hand-dryer",
+        "name":  "Hotel Accessories",
+        "sourceImage":  "https://alredastore.com/cdn/shop/collections/8C248ABC-5388-4B36-9A1E-946D7EF88692.png?v=1787331659\u0026width=1500",
+        "slug":  "hotel-accessories",
+        "group":  "legacy"
+    }
 ]

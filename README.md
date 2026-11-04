@@ -1,20 +1,20 @@
 ﻿# Alreda Store
 
-Independent commerce platform using CommonJS Node.js, Express, EJS, custom CSS and vanilla JavaScript. Imported product storefront, prepared Cloudinary integration and verified Neon/Prisma connectivity. Authentication, cart and checkout remain unimplemented; admin is informational.
+Full-stack Alreda Store using CommonJS Node.js, Express, EJS, PostgreSQL/Neon, Prisma, Cloudinary and vanilla JavaScript. It includes a bilingual product catalog, customer Google sign-in, shopping cart and checkout flows, plus protected admin tools for orders and catalog management. Live checkout requires valid database, delivery and payment configuration.
 
 ## Run locally
 
 Use Node.js 24 (verified with 24.13.1), or a compatible supported version satisfying package.json.
 
 ```sh
-npm install
+npm ci
 # Only for a new setup; preserve an existing .env
 cp .env.example .env
 npm run build
 npm run dev
 ```
 
-For a new Windows PowerShell setup use `Copy-Item .env.example .env` only if no local .env exists and `npm.cmd` if execution policy blocks `npm.ps1`. The environment file is optional for the local defaults. Visit http://127.0.0.1:666 and http://127.0.0.1:666/admin. `npm start` runs without file watching; Ctrl+C stops the server. The host defaults to loopback locally and 0.0.0.0 in production. Production requires a valid runtime DATABASE_URL.
+For a new Windows PowerShell setup use `Copy-Item .env.example .env` only if no local `.env` exists and `npm.cmd` if execution policy blocks `npm.ps1`. Set required credentials and service settings in `.env`; never commit that file. Product photos are served from the Cloudinary manifest, so configure the matching Cloudinary account values from `.env.example`. Visit http://127.0.0.1:666 and http://127.0.0.1:666/admin. `npm start` runs without file watching; Ctrl+C stops the server. The host defaults to loopback locally and 0.0.0.0 in production. Production requires a valid runtime `DATABASE_URL` and Cloudinary configuration.
 
 ## Verification
 
@@ -28,8 +28,8 @@ Browser tests use installed Google Chrome and start their own server on port 310
 
 ## Scope and safety
 
-`/admin` is now a protected database-backed order dashboard. No default authentication adapter or accounts are created, so it returns 401 until verified login is connected. Checkout is disabled by default; authentication, reviewed schema changes, real inventory and catalog mapping are required before activation. See [durable order workflow](docs/order-workflow.md) for confirmation guarantees, recovery, tests and remaining production requirements. Catalog pages retain their imported local data.
+`/admin` is protected and uses the configured Google sign-in and admin roles. Orders and catalog data are stored in PostgreSQL. Checkout availability depends on delivery areas, live stock and payment settings configured by an administrator. See [order workflow](docs/order-workflow.md) for confirmation and recovery details.
 
 See [Neon/Prisma verification and Northflank deployment](docs/neon-prisma.md) for database commands, migration ownership and deployment requirements.
 
-See [implementation plan](docs/implementation-plan.md), [architecture](docs/architecture.md), [database design](docs/database.md), [routes](docs/routes.md), [design system](docs/design-system.md) and [progress](docs/progress.md).
+See [architecture](docs/architecture.md), [database design](docs/database.md), [routes](docs/routes.md), [design system](docs/design-system.md), [Cloudinary media setup](docs/cloudinary-media.md), [delivery and notifications](docs/delivery-and-push.md), and [InstaPay review](docs/instapay.md).

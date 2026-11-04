@@ -1,11 +1,30 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
+const { createHash } = require('node:crypto');
 const { buildMediaJobs, migrateCatalogMedia } = require('../../scripts/catalog-import/cloudinary');
 const { mockCloudinary } = require('../helpers/cloudinary');
 const { createCloudinaryService } = require('../../src/services/cloudinary.service');
 const catalog = require('../../src/config/catalog.json');
-const sample = { ...catalog, products: [catalog.products[0]], collections: [] };
+let sample;
+let publicDirectory;
+let fixtureDirectory;
+beforeAll(async () => {
+  fixtureDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'alreda-cloudinary-fixture-'));
+  publicDirectory = path.join(fixtureDirectory, 'public');
+  const imageDirectory = path.join(publicDirectory, 'images', 'products');
+  await fs.mkdir(imageDirectory, { recursive: true });
+  const image = await fs.readFile(path.resolve(__dirname, '../../src/public/images/pwa/icon-192.png'));
+  await fs.writeFile(path.join(imageDirectory, 'fixture.jpg'), image);
+  const staticImages = ['bathroom-hero.jpg', 'alreda-delight-logo.jpg', 'whatsapp-transparent.png'];
+  for (const filename of staticImages) {
+    await fs.copyFile(path.resolve(__dirname, `../../src/public/images/${filename}`), path.join(publicDirectory, 'images', filename));
+  }
+  const firstProduct = catalog.products[0];
+  sample = { ...catalog, products: [{ ...firstProduct, gallery: [{ ...firstProduct.gallery[0],
+    src: '/assets/images/products/fixture.jpg', sha256: createHash('sha256').update(image).digest('hex') }] }], collections: [] };
+});
+afterAll(async () => { if (fixtureDirectory) await fs.rm(fixtureDirectory, { recursive: true, force: true }); });
 describe('Cloudinary catalog migration preparation', () => {
   it('retains every image, its source mapping and all variant associations without inventing missing pictures', () => {
     const jobs = buildMediaJobs(catalog);
@@ -23,19 +42,19 @@ describe('Cloudinary catalog migration preparation', () => {
     const mock = mockCloudinary();
     const service = createCloudinaryService({ ...mock, authorize: async () => true, journal: async () => {} });
     try {
-      const dry = await migrateCatalogMedia(sample, { config: mock.config, service, output, manifestPath });
+      const dry = await migrateCatalogMedia(sample, { config: mock.config, service, output, manifestPath, publicDirectory });
       expect(dry.dryRun).toBe(true); expect(mock.calls.upload).toHaveLength(0);
-      const first = await migrateCatalogMedia(sample, { execute: true, config: mock.config, service, output, manifestPath });
+      const first = await migrateCatalogMedia(sample, { execute: true, config: mock.config, service, output, manifestPath, publicDirectory });
       expect(first.failures).toEqual([]); expect(first.databaseImported).toBe(false);
       const calls = mock.calls.upload.length;
-      const second = await migrateCatalogMedia(sample, { execute: true, config: mock.config, service, output, manifestPath });
+      const second = await migrateCatalogMedia(sample, { execute: true, config: mock.config, service, output, manifestPath, publicDirectory });
       expect(second.failures).toEqual([]); expect(mock.calls.upload).toHaveLength(calls);
       const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
       const asset = manifest.assets[`product:${sample.products[0].sourceId}:${sample.products[0].gallery[0].sourceId}`];
       expect(asset).toMatchObject({ localProductId: sample.products[0].sourceId, sourceProductUrl: sample.products[0].sourceUrl });
       expect(await fs.readFile(manifestPath, 'utf8')).not.toContain(mock.config.apiSecret);
       await fs.appendFile(manifestPath, ' ');
-      await expect(migrateCatalogMedia(sample, { execute: true, config: mock.config, service, output, manifestPath })).rejects.toMatchObject({ code: 'CLOUDINARY_MANIFEST_CONFLICT' });
+      await expect(migrateCatalogMedia(sample, { execute: true, config: mock.config, service, output, manifestPath, publicDirectory })).rejects.toMatchObject({ code: 'CLOUDINARY_MANIFEST_CONFLICT' });
     } finally {
       // Only the explicitly named temporary test files are removed.
       for (const file of ['report.json', 'report-plan.json', 'manifest.json']) await fs.unlink(path.join(directory, file)).catch(() => {});
@@ -50,7 +69,7 @@ describe('Cloudinary catalog migration preparation', () => {
     const fail = async () => { throw new MediaError('INVALID_IMAGE'); };
     const service = Object.fromEntries(['uploadProductMainImage', 'uploadProductGalleryImage', 'uploadProductVariantImage', 'uploadCollectionImage', 'uploadBrandAsset', 'uploadBannerImage'].map(method => [method, fail]));
     try {
-      const report = await migrateCatalogMedia(sample, { execute: true, config: mock.config, service, output, manifestPath, retries: 0 });
+      const report = await migrateCatalogMedia(sample, { execute: true, config: mock.config, service, output, manifestPath, retries: 0, publicDirectory });
       expect(report.failures.length).toBe(report.jobs);
       await expect(fs.access(manifestPath)).rejects.toThrow();
     } finally { await fs.unlink(output); await fs.rmdir(directory); }
@@ -61,7 +80,7 @@ describe('Cloudinary catalog migration preparation', () => {
     const { MediaError } = require('../../src/validators/media.validator');
     const fail = vi.fn(async () => { throw new MediaError('CLOUDINARY_RATE_LIMITED', 503); });
     try {
-      const result = await migrateCatalogMedia(sample, { execute: true, config: mockCloudinary().config, service: { uploadProductMainImage: fail }, output, manifestPath });
+      const result = await migrateCatalogMedia(sample, { execute: true, config: mockCloudinary().config, service: { uploadProductMainImage: fail }, output, manifestPath, publicDirectory });
       expect(fail).toHaveBeenCalledOnce(); expect(result.failures).toHaveLength(result.jobs);
       expect(result.failures.slice(1).every(failure => failure.code === 'NOT_ATTEMPTED_AFTER_ACCOUNT_RESTRICTION')).toBe(true);
     } finally { await fs.unlink(output); await fs.rmdir(directory); }

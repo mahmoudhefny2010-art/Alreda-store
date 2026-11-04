@@ -36,7 +36,8 @@ async function writeAtomic(file, data) {
   await fs.rename(file + '.pending', file);
 }
 async function migrateCatalogMedia(catalog, { execute = false, service: providedService, config: suppliedConfig, retries = 2,
-  output = stateFile, manifestPath = manifestFile, refreshExisting = false, onProgress = () => {} } = {}) {
+  output = stateFile, manifestPath = manifestFile, refreshExisting = false, onProgress = () => {},
+  publicDirectory = path.resolve(root, 'src/public') } = {}) {
   const defaults = suppliedConfig ? null : createCloudinaryClient();
   const config = suppliedConfig || defaults.config;
   const jobs = buildMediaJobs(catalog);
@@ -74,8 +75,8 @@ async function migrateCatalogMedia(catalog, { execute = false, service: provided
   const methods = { 'product-main': 'uploadProductMainImage', 'product-gallery': 'uploadProductGalleryImage', 'product-variant': 'uploadProductVariantImage',
     collection: 'uploadCollectionImage', banner: 'uploadBannerImage', branding: 'uploadBrandAsset' };
   for (const [index, job] of jobs.entries()) {
-    const filename = path.resolve(root, 'src/public', job.localPath.replace(/^\/assets\//, ''));
-    const allowed = path.resolve(root, 'src/public/images') + path.sep;
+    const filename = path.resolve(publicDirectory, job.localPath.replace(/^\/assets\//, ''));
+    const allowed = path.resolve(publicDirectory, 'images') + path.sep;
     try {
       if (!job.localPath.startsWith('/assets/images/') || !filename.startsWith(allowed)) throw new MediaError('INVALID_LOCAL_MEDIA_PATH');
       const bytes = await fs.readFile(filename);

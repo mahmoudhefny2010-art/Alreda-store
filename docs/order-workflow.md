@@ -2,11 +2,7 @@
 
 ## Status and activation boundary
 
-The order workflow is implemented and tested against a disposable PostgreSQL database using Prisma. The current Neon target has the workflow tables from the initial Prisma migration, but checkout remains disabled and the workflow is **not production-ready**. There is no login system and inventory quantities have not been set.
-
-Default configuration rejects new checkout requests. `/admin` and `/admin/orders` require a verified identity and a database-backed administrator role; there is no public order dashboard or development identity bypass. Existing storefront purchase buttons remain disabled. The imported gallery/variant catalog has not been mapped into the legacy database product model.
-
-Neon was inspected read-only for constraint definitions/names. No shared database writes, stock assignments, orders, payment records, schema changes, resets or deletes were performed. Synthetic fixtures exist only inside isolated test clusters.
+The order workflow uses PostgreSQL through Prisma. Customer checkout requires a verified account, configured delivery areas, available inventory and an enabled payment method. `/admin` and `/admin/orders` require a verified identity and a database-backed administrator role. Incomplete checkout settings leave purchasing unavailable rather than creating an order without verified stock or delivery.
 
 ## Confirmation invariant
 
@@ -69,7 +65,6 @@ Chrome tests use a loopback-only test server and synthetic authenticated princip
 
 The development-only `embedded-postgres` dependency runs an owned temporary local cluster with a generated password and does not load dotenv or use Neon credentials. Temporary cluster files remain in the OS temp directory; tests shut down their processes. Schema fixtures are limited to affected legacy tables and explicitly reproduce relevant CHECK constraints; they are not a full migration baseline.
 
-Final command totals and any regression reruns are recorded in [progress](progress.md). There is no Git baseline in this workspace, so changed files are reviewed directly. No commit or deployment was performed.
 
 ## Before production activation
 

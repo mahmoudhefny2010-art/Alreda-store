@@ -1,6 +1,6 @@
 # Product details source refresh
 
-The public source is https://alredastore.com/. Both default and Arabic product feeds were refetched and paginated to an empty page. Exact counts and source hash are in product-details-source-report.json. All 237 existing descriptions already matched the public source; no database rewrite was necessary. Source metadata includes 1,074 variants and 898 gallery images. This does not imply that unpublished/private source fields are accessible.
+The active product catalog is `src/config/catalog.json`. `npm run catalog:details` refetches the public English and Arabic product feeds, builds a validated change plan, and writes an ignored local report at `docs/product-details-source-report.json`. Add `-- --execute` only when the reviewed description changes should be applied to PostgreSQL. The refresh does not run during storefront startup or change prices, stock, variants or Cloudinary images.
 
 The previous language filter discarded an entire English description if it contained even one Arabic option name. Product pages now preserve the entire sanitized source description and select by predominant visible-text language. Missing translations display an explicit original-language notice and correct content lang/direction; this is not a claim of complete translation. There are 66 English and 22 Arabic source translation gaps. Supplying a Google Translation key alone does not translate the existing catalog automatically.
 

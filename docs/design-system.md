@@ -41,13 +41,13 @@ The user's latest screenshot supersedes the compact text-only header: single des
 
 A local Assistant regular font follows the reference's typography. The full-width bathroom hero uses the original image with object-fit: cover, desktop focal point 58%, a 40% black overlay and white Browse our latest products text. The outlined Shop all link scrolls to Collections. Hero height follows the desktop viewport, bounded between 560 and 900px; mobile is bounded between 440 and 640px with responsive text. A verified WhatsApp link appears as a desktop pill and mobile icon button. It opens externally without automatically sending a message. No decorative illustration is used.
 
-Asset provenance and native-resolution limits: docs/asset-sources.md. Category image placeholders remain explicitly labeled. The compact footer with Mahmoud Mohamed Hefny credit is preserved.
+Product and populated category photography is delivered from Cloudinary; see [Cloudinary media setup](cloudinary-media.md). Categories without an uploaded image use the accessible placeholder. The compact footer with Mahmoud Mohamed Hefny credit is preserved.
 
 ## Current collection showcase
 
 The homepage now renders two Collections sections following the supplied screenshot: 15 bathroom-accessory cards (four desktop columns) and three home collections (three desktop columns). The second group contains Safe Box, Door handle and basket. Tablet primary cards use two columns; secondary cards use three. Mobile uses two columns, switching to one below 360px. Body/captions use the local Assistant font; section headings are 32px desktop / 26px mobile, captions 15px / 13px, with small adjacent arrows. All 18 photos use local, source-cropped square WebP files, replacing placeholders. The hero and header above the showcase remain unchanged.
 
-Category data and group order are explicit UI snapshots in src/config/collection-preview.json, not permanent database categories. Every card opens the matching local collection page with sample products. Category grid counts and original reference order are verified along with image decoding. Source import details are in docs/asset-sources.md.
+The fallback homepage category order is in `src/config/collection-preview.json`; live catalog/category data comes from the configured catalog repository. Each card opens its collection page. Homepage order and category groups can be managed from the admin dashboard.
 
 ## Product detail pages
 
