@@ -14,7 +14,7 @@ function savedCheckoutDetails(order, shippingRates) {
     postalCode: typeof shipping.postalCode === 'string' ? shipping.postalCode : '',
   };
 }
-function createCheckoutController({ service, repository, cartRepository, instapay = { enabled: false } }) {
+function createCheckoutController({ service, repository, cartRepository, notificationWorker, logger = console, instapay = { enabled: false } }) {
   return {
     async page(req, res) {
       let policy;
@@ -32,6 +32,10 @@ function createCheckoutController({ service, repository, cartRepository, instapa
     },
     async create(req, res) {
       const result = await service.submit(res.locals.orderUserId, req.get('Idempotency-Key'), req.body);
+      if (result.order?.id && result.order.status === 'PLACED') {
+        try { await notificationWorker?.processOrderPlaced(result.order.id); }
+        catch { logger.error({ event: 'order_notification_dispatch_failed', code: 'WORKER_ERROR' }); }
+      }
       res.status(result.state === 'pending_verification' ? 202 : 200).json(result);
     },
     async status(req, res) {

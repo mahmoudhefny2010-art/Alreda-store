@@ -90,6 +90,31 @@ describe('customer push preferences and OneSignal delivery', () => {
     expect(tx.notification_outbox.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'SENT' }) }));
   });
 
+  it('immediately dispatches the queued order-placed notice for the requested order', async () => {
+    const orderId = 'a836d7d7-65f9-4c40-9bc4-0b76581e35cc';
+    const job = { id: 'c2ce6f28-5d26-4a8d-a005-babacb314181', user_id: 'u1', order_id: orderId, reminder_id: null,
+      event_type: 'ORDER_PLACED', payload: { reference: 'AS-123' }, attempts: 1 };
+    const tx = {
+      $queryRaw: vi.fn(async () => [job]),
+      site_settings: { findUnique: vi.fn(async () => null) },
+      users: { findFirst: vi.fn(async () => ({ id: 'u1' })) },
+      push_subscribers: { findMany: vi.fn(async () => [{ onesignal_subscription_id: 'subscription-123' }]) },
+      notification_attempts: { create: vi.fn() },
+      notification_outbox: { update: vi.fn() },
+    };
+    const client = { ...tx, $transaction: vi.fn(async callback => callback(tx)) };
+    const provider = { enabled: true, send: vi.fn(async () => ({ skipped: false, messageId: 'provider-message-id' })) };
+    const worker = createNotificationWorker({ clientProvider: () => client, provider, logger: { error: vi.fn() } });
+
+    await expect(worker.processOrderPlaced(orderId)).resolves.toEqual({ processed: 1, skipped: false });
+
+    const [query, parameter] = tx.$queryRaw.mock.calls[0];
+    expect(query.join(' ')).toContain("event_type = 'ORDER_PLACED'");
+    expect(parameter).toBe(orderId);
+    expect(provider.send).toHaveBeenCalledWith(expect.objectContaining({ eventType: 'ORDER_PLACED', deliveryKey: job.id }));
+    expect(tx.notification_outbox.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'SENT' }) }));
+  });
+
   it('ends an undeliverable notification without retrying it as a provider failure', async () => {
     const job = { id: 'c2ce6f28-5d26-4a8d-a005-babacb314181', user_id: 'u1', order_id: null, reminder_id: null,
       event_type: 'ORDER_PLACED', payload: {}, attempts: 1 };

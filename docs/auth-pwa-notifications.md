@@ -6,6 +6,8 @@ Copy the variable names from `.env.example` into the ignored local `.env` and fi
 
 For OneSignal, set the app ID and REST API key on the server. The browser receives only the public app ID. Push permission is requested only after a customer explicitly presses the enable button, and notification preference defaults are transactional on and marketing off. A signed-in user's guest cart is merged after successful Google sign-in; price and stock are checked again by the order service.
 
+Order placement and each order-status change dispatch their queued transactional notification immediately, while the outbox worker remains responsible for retrying transient provider failures. Delivery requires the customer to be signed in, have transactional notifications enabled, grant browser push permission, and have an active OneSignal subscription.
+
 Notification connection recovery: pressing Enable retries a failed SDK download or account login. Account retries reuse the initialized SDK. After recovery, press Enable again to grant browser permission. The account and welcome dialogs distinguish SDK loading, account linking, device registration, expired sessions and subscription persistence failures in both languages. Subscription change events are persisted only after SDK account login completes, and connection success is shown only after the server saves the subscription.
 
 ## Northflank setup

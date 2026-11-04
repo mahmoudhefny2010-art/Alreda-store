@@ -149,8 +149,10 @@ describe('durable PostgreSQL order workflow', () => {
   });
   it('commits the complete order and retrieves it through the real admin projection/dashboard', async () => {
     const item = await product(); const key = randomUUID();
-    const response = await post(app(customer.id), key, body(item, 2)).expect(200);
+    const notificationWorker = { processOrderPlaced: vi.fn(async () => ({ processed: 1, skipped: false })), processOrderStatus: vi.fn() };
+    const response = await post(app(customer.id, { notificationWorker }), key, body(item, 2)).expect(200);
     expect(response.body.confirmed).toBe(true);
+    expect(notificationWorker.processOrderPlaced).toHaveBeenCalledWith(response.body.order.id);
     expect(response.body.order.totalEgp).toBe(225);
     expect(response.body.order.paymentStatus).toBe('UNPAID');
     const stored = await repository.getAdminOrder(response.body.order.id);
@@ -182,7 +184,8 @@ describe('durable PostgreSQL order workflow', () => {
     const auth = createCustomerAuthRepository(() => database.client);
     const session = await auth.createSession(admin.id);
     const whatsappOrderService = { sendOrder: vi.fn(async () => ({ status: 'sent' })) };
-    const application = createApp({ environment: 'test', logger, authRepository: auth, orders: { repository, policy, whatsappOrderService } });
+    const notificationWorker = { processOrderPlaced: vi.fn(), processOrderStatus: vi.fn(async () => ({ processed: 1, skipped: false })) };
+    const application = createApp({ environment: 'test', logger, authRepository: auth, orders: { repository, policy, whatsappOrderService, notificationWorker } });
     const cookie = `alreda_session=${session.token}`;
     const detail = await request(application).get(`/admin/orders/${created.order.id}`).set('Cookie', cookie).expect(200);
     const csrfToken = detail.text.match(/name="_csrf" value="([a-f0-9]{64})"/i)?.[1];
@@ -193,6 +196,7 @@ describe('durable PostgreSQL order workflow', () => {
     expect(response.status, response.text).toBe(303);
     expect(response.headers.location).toBe(`/admin/orders/${created.order.id}?whatsapp=sent`);
     expect((await repository.getAdminOrder(created.order.id)).status).toBe('CONFIRMED');
+    expect(notificationWorker.processOrderStatus).toHaveBeenCalledWith(created.order.id);
     expect(whatsappOrderService.sendOrder).toHaveBeenCalledWith(expect.objectContaining({ id: created.order.id, status: 'CONFIRMED' }));
     const retry = await request(application).post(`/admin/orders/${created.order.id}/whatsapp`)
       .set('Cookie', cookie).set('Host', '127.0.0.1:666').set('Origin', 'http://localhost:666')

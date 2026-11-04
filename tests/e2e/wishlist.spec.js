@@ -62,6 +62,7 @@ test('mobile navigation and guest wishlist stay in sync across reloads', async (
   await expect(page.locator(`.product-card [data-favorite-toggle][data-product-id="${productId}"]`)).toHaveAttribute('aria-pressed', 'true');
   await page.evaluate(() => window.scrollTo({ top: document.querySelector('.shop-header').offsetHeight + 4, behavior: 'instant' }));
   await expect(nav).toBeVisible();
+  const returnUrl = page.url();
   await nav.getByRole('link', { name: 'Favorites' }).click();
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect(nav).toBeHidden();
@@ -78,6 +79,8 @@ test('mobile navigation and guest wishlist stay in sync across reloads', async (
   await expect(page.locator('[data-cart-items]')).toContainText('Synthetic favorite');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.locator('#bag-dialog .dialog-top button').click();
+  await page.getByRole('link', { name: 'Close' }).click();
+  await expect(page).toHaveURL(returnUrl);
   await page.goto('/');
   const homeWelcome = page.locator('#welcome-dialog');
   if (await homeWelcome.evaluate(dialog => dialog.open)) {
@@ -98,9 +101,20 @@ test('mobile navigation and guest wishlist stay in sync across reloads', async (
   expect(await whatsapp.evaluate(link => link.getBoundingClientRect().bottom < document.querySelector('.mobile-bottom-nav').getBoundingClientRect().top)).toBe(true);
   await page.locator('.shop-footer').scrollIntoViewIfNeeded();
   await expect(nav).toBeHidden();
+  const directPage = await page.context().newPage();
+  await directPage.setViewportSize({ width: 390, height: 844 });
+  await directPage.goto('/wishlist');
+  await directPage.getByRole('link', { name: 'Close' }).click();
+  await expect(directPage).toHaveURL(/\/products$/);
+  await directPage.close();
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page.locator('.wishlist-header-toggle')).toBeVisible();
   await expect(nav).toBeHidden();
+  await page.goto('/wishlist');
+  await expect(page.getByRole('heading', { name: 'Your favorites' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Close' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/wishlist-page-desktop.png', fullPage: true });
 });
 
 test('pulling down at the top of a mobile page refreshes after the release threshold', async ({ page }) => {

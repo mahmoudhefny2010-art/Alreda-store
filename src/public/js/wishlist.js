@@ -8,9 +8,37 @@
   const globalStatus = document.querySelector('[data-wishlist-global-status]');
   const grid = root?.querySelector('[data-wishlist-grid]');
   const empty = root?.querySelector('[data-wishlist-empty]');
+  const backLink = root?.querySelector('[data-wishlist-back]');
+  const returnKey = 'alreda:wishlist-return';
+  let savedReturn = '';
   let ids = new Set();
   let busy = false;
   let databaseWishlistAvailable = nav?.dataset.authenticated === 'true';
+
+  if (root) {
+    try { savedReturn = sessionStorage.getItem(returnKey) || ''; sessionStorage.removeItem(returnKey); } catch { /* Navigation still falls back to the catalog. */ }
+  } else {
+    document.addEventListener('click', event => {
+      const link = event.target.closest('a[href]');
+      if (!link || link.target === '_blank') return;
+      try {
+        const destination = new URL(link.href, window.location.href);
+        if (destination.origin === window.location.origin && destination.pathname.replace(/\/$/, '') === '/wishlist') {
+          sessionStorage.setItem(returnKey, window.location.href);
+        }
+      } catch { /* A missing session store does not block navigation. */ }
+    });
+  }
+
+  backLink?.addEventListener('click', event => {
+    let destination;
+    try { destination = new URL(savedReturn || document.referrer); } catch { return; }
+    if (destination.origin !== window.location.origin || destination.pathname.replace(/\/$/, '') === '/wishlist') return;
+    event.preventDefault();
+    const referrerMatches = document.referrer === destination.href;
+    if (referrerMatches && window.history.length > 1) window.history.back();
+    else window.location.replace(`${destination.pathname}${destination.search}${destination.hash}`);
+  });
 
   function readGuest() {
     try {

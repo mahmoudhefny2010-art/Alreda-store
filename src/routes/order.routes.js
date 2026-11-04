@@ -28,7 +28,7 @@ function createOrderRoutes({ authenticate, repository = createOrderRepository(),
   whatsappOrderService = createWhatsAppOrderService() } = {}) {
   const router = Router();
   const service = createOrderService({ repository, policy, paymentProvider, logger, instapay, shippingProvider: repository.shippingRates ? fallback => repository.shippingRates(fallback) : undefined });
-  const checkout = createCheckoutController({ service, repository, cartRepository, instapay });
+  const checkout = createCheckoutController({ service, repository, cartRepository, notificationWorker, logger, instapay });
   const dispatchConfirmedOrder = async orderId => {
     const order = await repository.getAdminOrder(orderId);
     if (!order) throw new OrderError('ORDER_NOT_FOUND', 404);

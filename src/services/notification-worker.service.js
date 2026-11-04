@@ -43,10 +43,18 @@ function createNotificationWorker({ clientProvider = getPrismaClient, provider =
       } catch (error) { if (error.code !== 'P2002') logger.error({ event: 'cart_reminder_schedule_failed', code: 'DATABASE_ERROR' }); }
     }
   }
-  async function claim(orderId = null) {
+  async function claim(orderId = null, eventType = 'ORDER_STATUS') {
     return db().$transaction(async tx => {
       const rows = orderId
-        ? await tx.$queryRaw`WITH candidate AS (
+        ? eventType === 'ORDER_PLACED'
+          ? await tx.$queryRaw`WITH candidate AS (
+          SELECT id FROM public.notification_outbox
+          WHERE ((status = 'PENDING' AND available_at <= now()) OR (status = 'SENDING' AND locked_until < now()))
+            AND order_id = ${orderId}::uuid AND event_type = 'ORDER_PLACED'
+          ORDER BY available_at, created_at FOR UPDATE SKIP LOCKED LIMIT 1
+        ) UPDATE public.notification_outbox AS o SET status = 'SENDING', attempts = attempts + 1, locked_until = now() + interval '90 seconds'
+          FROM candidate WHERE o.id = candidate.id RETURNING o.id, o.user_id, o.order_id, o.reminder_id, o.event_type, o.payload, o.attempts`
+          : await tx.$queryRaw`WITH candidate AS (
           SELECT id FROM public.notification_outbox
           WHERE ((status = 'PENDING' AND available_at <= now()) OR (status = 'SENDING' AND locked_until < now()))
             AND order_id = ${orderId}::uuid AND event_type = 'ORDER_STATUS'
@@ -62,8 +70,8 @@ function createNotificationWorker({ clientProvider = getPrismaClient, provider =
       return rows[0] || null;
     });
   }
-  async function processOne(orderId = null) {
-    const job = await claim(orderId);
+  async function processOne(orderId = null, eventType = 'ORDER_STATUS') {
+    const job = await claim(orderId, eventType);
     if (!job) return false;
     let targetSubscriptionIds = [];
     try {
@@ -124,9 +132,13 @@ function createNotificationWorker({ clientProvider = getPrismaClient, provider =
   }
   async function processOrderStatus(orderId) {
     if (!provider.enabled) return { processed: 0, skipped: true };
-    return { processed: await processOne(orderId) ? 1 : 0, skipped: false };
+    return { processed: await processOne(orderId, 'ORDER_STATUS') ? 1 : 0, skipped: false };
+  }
+  async function processOrderPlaced(orderId) {
+    if (!provider.enabled) return { processed: 0, skipped: true };
+    return { processed: await processOne(orderId, 'ORDER_PLACED') ? 1 : 0, skipped: false };
   }
   function start(intervalMs = 30000) { const timer = setInterval(() => { runOnce().catch(() => {}); }, intervalMs); timer.unref(); runOnce().catch(() => {}); return () => clearInterval(timer); }
-  return { runOnce, processOne, processOrderStatus, start };
+  return { runOnce, processOne, processOrderPlaced, processOrderStatus, start };
 }
 module.exports = { createNotificationWorker, deliveryFailureCode };
