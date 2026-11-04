@@ -21,7 +21,7 @@ test('mobile navigation and guest wishlist stay in sync across reloads', async (
   });
   await page.goto('/');
   const welcome = page.locator('#welcome-dialog');
-  await page.waitForTimeout(750); // The existing first-visit prompt opens after its 600 ms delay.
+  await expect(welcome).toBeVisible();
   if (await welcome.evaluate(dialog => dialog.open)) {
     await welcome.locator('[data-welcome-later]').click();
     await welcome.locator('[data-welcome-done]').click();
@@ -39,6 +39,7 @@ test('mobile navigation and guest wishlist stay in sync across reloads', async (
   const headerBottom = await header.evaluate(element => window.scrollY + element.getBoundingClientRect().bottom);
   await page.evaluate(bottom => window.scrollTo({ top: bottom + 2, behavior: 'instant' }), headerBottom);
   await expect(nav).toBeVisible();
+  await expect(nav).toHaveCSS('opacity', '1');
   await expect(page.locator('.shopping-hero')).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/wishlist-mobile-navigation.png' });
