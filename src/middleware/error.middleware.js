@@ -1,6 +1,6 @@
 module.exports = (logger) => (error, req, res, next) => {
   if (res.headersSent) return next(error);
-  const status = error.status === 413 ? 413 : error.status === 400 ? 400 : 500;
+  const status = [400, 403, 413].includes(error.status) ? error.status : 500;
   if (status === 500) logger.error({ event: 'request_failed', status });
   // Never reflect raw error messages, request bodies, URLs, or stack traces.
   res.status(status).render('layouts/storefront', {

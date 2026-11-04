@@ -30,6 +30,11 @@ beforeAll(async () => {
 afterAll(async () => { await database?.stop(); }, 30000);
 
 describe('durable PostgreSQL order workflow', () => {
+  it('sends unauthenticated customer pages to Google sign-in with a safe return path', async () => {
+    await request(app(null)).get('/checkout').expect(303).expect('Location', '/auth/google?returnTo=%2Fcheckout');
+    await request(app(null)).get('/account/orders').expect(303).expect('Location', '/auth/google?returnTo=%2Faccount%2Forders');
+  });
+
   it('persists the optional delivery pin, verifies retries and displays its map link in admin', async () => {
     const item = await product(5, 100), key = randomUUID();
     const location = { latitude: 30.0444, longitude: 31.2357, accuracyM: 12.5 };

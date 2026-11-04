@@ -175,6 +175,9 @@ describe('Cloudinary media operations (mock SDK only)', () => {
     expect(delivery.assetUrl('branding:logo', '/local.jpg')).toContain('res.cloudinary.com/alreda-test/');
     expect(delivery.assetUrl('unknown', '/local.jpg')).toBe('/local.jpg');
     expect(createMediaDelivery({ source: {}, manifest }).assetUrl('branding:logo', '/local.jpg')).toBe('/local.jpg');
+    const publicDelivery = createMediaDelivery({ source: { MEDIA_PUBLIC_MANIFEST: 'true' }, manifest });
+    expect(publicDelivery.assetUrl('branding:logo', '/local.jpg')).toContain('res.cloudinary.com/alreda-test/');
+    expect(publicDelivery.assetUrl('branding:logo', '/local.jpg')).not.toContain(source.CLOUDINARY_API_SECRET);
     expect(() => createMediaDelivery({ source, manifest: { ...manifest, cloudName: 'foreign' } })).toThrow();
   });
 });

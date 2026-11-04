@@ -3,6 +3,7 @@
     <% if (product.image) { %><picture class="card-picture <%= product.preview?.isSet ? 'card-picture--set' : '' %>"><% if (product.preview?.mobileImage) { %><source media="(hover: none), (pointer: coarse)" srcset="<%= product.preview.mobileImage %>"><% } %><img class="category-image" src="<%= product.image %>" alt="<%= product.name %>" width="640" height="640" loading="lazy"></picture>
     <% } else { %><div class="category-image image-placeholder"><span><%= t('productImage') %></span><small><%= t('temporaryPlaceholder') %></small></div><% } %>
   <% if (product.href) { %></a><% } else { %></div><% } %>
+  <% if (product.id) { %><button class="favorite-toggle" type="button" data-favorite-toggle data-product-id="<%= product.id %>" data-product-name="<%= product.name %>" data-save-label="<%= t('saveFavorite') %>" data-remove-label="<%= t('removeFavorite') %>" data-added-message="<%= t('favoriteAdded') %>" data-removed-message="<%= t('favoriteRemoved') %>" aria-pressed="false" aria-label="<%= t('saveFavorite') %>"><%- include('icon', { name: 'heart' }) %></button><% } %>
   <h3><% if (product.href) { %><a class="product-card-title" href="<%= product.href %>"><%= product.name %></a><% } else { %><%= product.name %><% } %></h3>
   <%- include('product-price', { price: product.price }) %>
   <% if (product.preview?.catalogColors?.length) { %>

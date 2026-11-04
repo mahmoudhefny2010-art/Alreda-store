@@ -10,11 +10,12 @@ const responseSchema = z.object({ public_id: z.string(), asset_id: z.string().mi
   format: z.enum(['jpg', 'jpeg', 'png', 'webp', 'avif']), bytes: z.number().int().positive(), version: z.number().int().positive(),
   asset_folder: z.string().optional(), context: z.object({ custom: z.record(z.string(), z.string()) }).optional(),
 });
-function createCloudinaryService({ config, client, repository = null, authorize = async () => false, journal = recordMediaEvent } = {}) {
+function createCloudinaryService({ config, client, repository = null, authorize = async () => false, journal = recordMediaEvent, requestTimeoutMs = 60000 } = {}) {
   if (!config || !client) { const defaults = createCloudinaryClient(); config ||= defaults.config; client ||= defaults.client; }
+  const timeout = z.number().int().min(1000).max(60000).parse(requestTimeoutMs);
   const credentials = () => {
     if (!config.enabled) throw new MediaError('CLOUDINARY_NOT_CONFIGURED', 503);
-    return { cloud_name: config.cloudName, api_key: config.apiKey, api_secret: config.apiSecret, secure: true, timeout: 60000 };
+    return { cloud_name: config.cloudName, api_key: config.apiKey, api_secret: config.apiSecret, secure: true, timeout };
   };
   function providerFailure(error, fallback = 'CLOUDINARY_UPLOAD_FAILED') {
     const status = error?.http_code || error?.error?.http_code;

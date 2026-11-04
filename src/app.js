@@ -22,9 +22,13 @@ const { createAdminManagementRoutes } = require('./routes/admin-management.route
 const { adminText } = require('./config/admin-i18n');
 const { dashboardText } = require('./config/admin-dashboard-i18n');
 const { createLocationRoutes } = require('./routes/location.routes');
+const { createWishlistRoutes } = require('./routes/wishlist.routes');
+const { createWishlistRepository } = require('./repositories/wishlist.repository');
+const { logoutCsrfToken } = require('./routes/auth.routes');
+const { createBackgroundJobsRoutes } = require('./routes/background-jobs.routes');
 
 function createApp({ environment = 'development', logger = console, whatsappSettings = process.env, mediaSettings = process.env, mediaManifest,
-  databaseReadiness = checkDatabaseReadiness, orders = {}, management = {}, authSettings = process.env, authRepository, cartRepository } = {}) {
+  databaseReadiness = checkDatabaseReadiness, orders = {}, management = {}, authSettings = process.env, authRepository, cartRepository, wishlistRepository, catalogProvider } = {}) {
   const media = createMediaDelivery({ source: mediaSettings, manifest: mediaManifest });
   const cartStore = cartRepository || createCartRepository();
   const checkoutPolicy = orders.policy || readCheckoutPolicy(process.env, { databaseShipping: true });
@@ -38,8 +42,15 @@ function createApp({ environment = 'development', logger = console, whatsappSett
     contentSecurityPolicy: { directives: { upgradeInsecureRequests: environment === 'production' ? [] : null,
       // The Web SDK loads its configuration using JSONP from the API origin.
       scriptSrc: ["'self'", ...(authSettings.ONESIGNAL_APP_ID ? ['https://cdn.onesignal.com', 'https://api.onesignal.com'] : [])],
-      connectSrc: ["'self'", ...(authSettings.ONESIGNAL_APP_ID ? ['https://onesignal.com', 'https://api.onesignal.com'] : [])],
+      connectSrc: ["'self'", ...(authSettings.ONESIGNAL_APP_ID ? ['https://onesignal.com', 'https://api.onesignal.com', 'https://cdn.onesignal.com'] : [])],
       workerSrc: ["'self'", 'blob:'], imgSrc: ["'self'", 'data:', ...(media.cloudName ? [`https://res.cloudinary.com/${media.cloudName}/`] : [])] } } }));
+  // Public files must not authenticate or perform per-customer database queries.
+  app.use('/assets', express.static(path.join(__dirname, 'public'), { dotfiles: 'deny', maxAge: environment === 'production' ? '1h' : 0 }));
+  app.get('/manifest.webmanifest', (req, res) => res.sendFile(path.join(__dirname, 'public', 'manifest.webmanifest')));
+  app.get('/offline.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'offline.html')));
+  app.get('/service-worker.js', (req, res) => res.sendFile(path.join(__dirname, 'public', 'service-worker.js'), { headers: { 'Service-Worker-Allowed': '/', 'Cache-Control': 'no-cache' } }));
+  app.get(['/onesignal/OneSignalSDKWorker.js', '/OneSignalSDKWorker.js'], (req, res) => res.sendFile(path.join(__dirname, 'public', 'onesignal', 'OneSignalSDKWorker.js'), { headers: { 'Service-Worker-Allowed': '/onesignal/', 'Cache-Control': 'no-cache' } }));
+  app.use(createBackgroundJobsRoutes({ secret: authSettings.CRON_SECRET || process.env.CRON_SECRET, logger }));
   app.locals.siteName = 'Alreda Store';
   app.locals.year = new Date().getFullYear();
   const authConfig = readAuthConfig({ ...authSettings, NODE_ENV: environment });
@@ -52,7 +63,6 @@ function createApp({ environment = 'development', logger = console, whatsappSett
   app.locals.formatPrice = formatPrice;
   app.locals.cityName = cityName;
   app.use(createCustomerSessionMiddleware({ secure: environment === 'production', ...(authRepository ? { repository: authRepository } : {}) }));
-  app.use(createAuthRoutes({ config: authConfig, ...(authRepository ? { repository: authRepository } : {}), cartRepository: cartStore, logger }));
   app.use((req, res, next) => {
     const locale = /(?:^|;\s*)alreda_locale=ar(?:;|$)/.test(req.get('cookie') || '') ? 'ar' : 'en';
     req.locale = locale;
@@ -60,6 +70,7 @@ function createApp({ environment = 'development', logger = console, whatsappSett
     res.locals.locale = locale;
     res.locals.direction = locale === 'ar' ? 'rtl' : 'ltr';
     res.locals.returnTo = req.originalUrl;
+    res.locals.logoutCsrfToken = logoutCsrfToken(req.customerSessionToken, authConfig.sessionSecret);
     res.locals.t = key => translate(locale, key);
     res.locals.a = key => adminText(locale, key);
     res.locals.dashboardText = key => dashboardText(locale, key);
@@ -72,6 +83,7 @@ function createApp({ environment = 'development', logger = console, whatsappSett
     };
     next();
   });
+  app.use(createAuthRoutes({ config: authConfig, ...(authRepository ? { repository: authRepository } : {}), cartRepository: cartStore, logger }));
   app.use(async (req, res, next) => {
     res.locals.notificationPreferences = { transactional_enabled: true, marketing_enabled: false };
     if (req.customer && app.locals.onesignalAppId) {
@@ -90,6 +102,7 @@ function createApp({ environment = 'development', logger = console, whatsappSett
   app.use(express.urlencoded({ extended: false, limit: '16kb' }));
   app.use(express.json({ limit: '16kb' }));
   app.use(createCartRoutes({ secure: environment === 'production', repository: cartStore }));
+  app.use(createWishlistRoutes({ ...(wishlistRepository ? { repository: wishlistRepository } : { repository: createWishlistRepository(getPrismaClient) }), ...(catalogProvider ? { catalogProvider } : {}) }));
   app.use(createLocationRoutes());
   app.use(createNotificationRoutes({ enabled: Boolean(authSettings.ONESIGNAL_APP_ID) }));
   app.post('/language', (req, res) => {
@@ -113,11 +126,6 @@ function createApp({ environment = 'development', logger = console, whatsappSett
     try { ready = await databaseReadiness(); } catch { /* Health responses never expose provider errors. */ }
     res.set('Cache-Control', 'no-store').status(ready ? 200 : 503).json({ status: ready ? 'ready' : 'unavailable' });
   });
-  app.use('/assets', express.static(path.join(__dirname, 'public'), { dotfiles: 'deny', maxAge: environment === 'production' ? '1h' : 0 }));
-  app.get('/manifest.webmanifest', (req, res) => res.sendFile(path.join(__dirname, 'public', 'manifest.webmanifest')));
-  app.get('/offline.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'offline.html')));
-  app.get('/service-worker.js', (req, res) => res.sendFile(path.join(__dirname, 'public', 'service-worker.js'), { headers: { 'Service-Worker-Allowed': '/', 'Cache-Control': 'no-cache' } }));
-  app.get('/onesignal/OneSignalSDKWorker.js', (req, res) => res.sendFile(path.join(__dirname, 'public', 'onesignal', 'OneSignalSDKWorker.js'), { headers: { 'Service-Worker-Allowed': '/onesignal/', 'Cache-Control': 'no-cache' } }));
   app.use(routes);
   app.use(notFound);
   app.use(errorHandler(logger));

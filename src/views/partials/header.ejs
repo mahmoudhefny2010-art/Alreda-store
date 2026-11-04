@@ -8,6 +8,7 @@
     <div class="header-actions">
       <form class="language-control" action="/language" method="post"><input type="hidden" name="returnTo" value="<%= returnTo %>"><label class="sr-only" for="store-language"><%= t('language') %></label><select id="store-language" name="locale" aria-label="<%= t('language') %>"><option value="en" <%= locale === 'en' ? 'selected' : '' %>>English</option><option value="ar" <%= locale === 'ar' ? 'selected' : '' %>>العربية</option></select><noscript><button type="submit"><%= t('apply') %></button></noscript></form>
       <button class="icon-button" type="button" data-dialog="search-dialog" aria-label="<%= t('search') %>"><%- include('icon', { name: 'search' }) %></button>
+      <a class="icon-button wishlist-header-toggle" href="/wishlist" aria-label="<%= t('favorites') %>" <%= returnTo.startsWith('/wishlist') ? 'aria-current="page"' : '' %>><%- include('icon', { name: 'heart' }) %><span class="bag-count" data-wishlist-count hidden aria-hidden="true"></span></a>
       <button class="icon-button" type="button" data-dialog="account-dialog" aria-label="<%= t('account') %>"><%- include('icon', { name: 'account' }) %></button>
       <button class="icon-button bag-toggle" type="button" data-dialog="bag-dialog" aria-label="<%= t('bag') %>" data-bag-label="<%= t('bag') %>"><%- include('icon', { name: 'bag' }) %><span class="bag-count" data-cart-count hidden aria-hidden="true"></span></button>
     </div>
@@ -32,13 +33,13 @@
       </fieldset>
       <div class="account-actions"><button class="button account-enable" type="button" data-enable-notifications><%= t('enablePush') %></button><button class="button" type="button" data-test-notifications hidden><%= t('pushTest') %></button></div><p class="account-notification-status" data-notification-status role="status" aria-live="polite"></p>
     </form><% } %>
-    <form class="account-logout" action="/auth/logout" method="post" data-sign-out><button class="button" type="submit"><%= t('signOut') %></button></form>
+    <form class="account-logout" action="/auth/logout" method="post" data-sign-out><input type="hidden" name="_csrf" value="<%= logoutCsrfToken %>"><button class="button" type="submit"><%= t('signOut') %></button></form>
   <% } else if (typeof googleAuthEnabled !== 'undefined' && googleAuthEnabled) { %><a class="button google-sign-in" href="/auth/google"><%= t('continueWithGoogle') %></a>
   <% } else { %><p><%= t('googleAuthUnavailable') %></p><% } %>
 </dialog>
 <dialog id="bag-dialog" class="shop-dialog" aria-labelledby="bag-title" data-cart-dialog data-empty-text="<%= t('bagEmpty') %>" data-remove-text="<%= t('cartRemove') %>" data-total-text="<%= t('cartTotal') %>" data-error-text="<%= t('cartError') %>" data-added-text="<%= t('cartAdded') %>" data-unavailable-text="<%= t('cartUnavailable') %>"><form method="dialog" class="dialog-top"><h2 id="bag-title"><%= t('bag') %></h2><button class="icon-button" aria-label="<%= t('close') %>">×</button></form>
   <p class="bag-status" data-cart-status role="status"></p><ul class="bag-items" data-cart-items></ul><p class="bag-total" data-cart-total></p>
-  <div class="bag-actions"><a class="button" href="<%= typeof customer !== 'undefined' && customer ? '/checkout' : '/auth/google?returnTo=/checkout' %>" data-cart-checkout><%= typeof customer !== 'undefined' && customer ? t('checkoutTitle') : t('continueWithGoogle') %></a>
+  <div class="bag-actions"><a class="button" href="/checkout" data-cart-checkout><%= typeof customer !== 'undefined' && customer ? t('checkoutTitle') : t('continueWithGoogle') %></a>
   <a class="text-link" href="/#collections"><%= t('browseCollections') %></a></div>
 </dialog>
 <div class="cart-feedback" data-cart-feedback role="status" aria-live="polite" aria-atomic="true" hidden><span class="cart-feedback-check" aria-hidden="true">✓</span><span data-cart-feedback-text></span></div>

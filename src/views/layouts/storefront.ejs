@@ -1,16 +1,19 @@
 <%- include('../partials/head') %>
 <body class="storefront-body">
+  <div class="pull-refresh-indicator" data-pull-refresh data-pull-label="<%= t('pullToRefresh') %>" data-release-label="<%= t('releaseToRefresh') %>" data-refreshing-label="<%= t('refreshing') %>" role="status" aria-live="polite" aria-atomic="true" aria-hidden="true"><span class="pull-refresh-spinner" aria-hidden="true"></span><span data-pull-refresh-label><%= t('pullToRefresh') %></span></div>
   <%- include('../partials/visit-ui') %>
   <a class="skip-link" href="#main"><%= t('skip') %></a>
   <%- include('../partials/header') %>
   <main id="main"><%- include(contentView) %></main>
   <%- include('../partials/footer') %>
   <%- include('../partials/whatsapp-button') %>
-  <script src="/assets/js/whatsapp-button.js" defer></script>
+  <%- include('../partials/mobile-bottom-nav') %>
+  <script src="/assets/js/whatsapp-button.js?v=footer-navigation-20261104-2" defer></script>
   <script src="/assets/js/pwa-register.js?v=visit-20261102-1" defer></script>
   <script src="/assets/js/visit-ui.js?v=visit-20261102-1" defer></script>
   <script src="/assets/js/cart.js?v=checkout-sync-20261103-1" defer></script>
   <script src="/assets/js/product-card.js?v=stock-labels-20261103-1" defer></script>
+  <script src="/assets/js/wishlist.js?v=wishlist-20261104-1" defer></script>
 </body>
 </html>
 

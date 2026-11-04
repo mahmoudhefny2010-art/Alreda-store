@@ -8,7 +8,7 @@ for (const locale of ['en', 'ar']) {
     test(`shopping bag, saved feedback and quantity badge ${locale} ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       const t = key => translate(locale, key);
-      const header = await ejs.renderFile(path.resolve('src/views/partials/header.ejs'), { locale, t, title: '', returnTo: '/', customer: { name: 'Synthetic customer' } });
+      const header = await ejs.renderFile(path.resolve('src/views/partials/header.ejs'), { locale, t, title: '', returnTo: '/', customer: null, googleAuthEnabled: true });
       let items = [];
       let fail = false;
       const item = { quantity: 2, variant_id: 'gold', products: { id: 'test', name: 'Bathroom accessories — Gold', name_ar: 'إكسسوارات الحمام — ذهبي', image_url: '/synthetic-bag-photo.svg', price_egp: 500 } };
@@ -41,6 +41,7 @@ for (const locale of ['en', 'ar']) {
       await expect(page.locator('.bag-item-name')).toHaveText(locale === 'ar' ? item.products.name_ar : item.products.name);
       await expect(page.locator('.bag-total strong')).toContainText(locale === 'ar' ? '١٬٠٠٠' : '1,000');
       await expect(page.locator('[data-cart-checkout]')).toBeVisible();
+      await expect(page.locator('[data-cart-checkout]')).toHaveAttribute('href', '/checkout');
       expect(await page.locator('#bag-dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
       await page.screenshot({ path: `alreda-store-verification-screenshots/bag-${locale}-${width}.png` });
       await page.locator('.bag-remove').click();

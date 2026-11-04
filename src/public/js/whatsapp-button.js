@@ -35,13 +35,19 @@
 
   const footer = document.querySelector('.shop-footer');
   if (!footer) return;
+  const mobileNavigation = document.querySelector('.mobile-bottom-nav');
   let frame = null;
   function updatePosition() {
     frame = null;
     const edge = Number.parseFloat(window.getComputedStyle(contact).getPropertyValue('--whatsapp-edge'));
     const rectangle = footer.getBoundingClientRect();
     const visible = rectangle.top < window.innerHeight && rectangle.bottom > 0;
-    const requested = visible ? Math.max(edge, window.innerHeight - rectangle.top + 12) : edge;
+    const footerClearance = visible ? window.innerHeight - rectangle.top + 12 : edge;
+    const navigationVisible = mobileNavigation?.classList.contains('is-visible') && mobileNavigation.getBoundingClientRect().height > 0;
+    const navigationClearance = navigationVisible
+      ? mobileNavigation.offsetHeight + Number.parseFloat(window.getComputedStyle(mobileNavigation).bottom) + 12
+      : edge;
+    const requested = Math.max(edge, footerClearance, navigationClearance);
     const offset = Math.min(requested, Math.max(edge, window.innerHeight - contact.offsetHeight - 12));
     contact.style.setProperty('--whatsapp-offset', `${offset}px`);
   }
@@ -53,6 +59,10 @@
   if ('ResizeObserver' in window) {
     const observer = new ResizeObserver(schedulePosition);
     observer.observe(footer);
+  }
+  if (mobileNavigation && 'MutationObserver' in window) {
+    const observer = new MutationObserver(schedulePosition);
+    observer.observe(mobileNavigation, { attributes: true, attributeFilter: ['class'] });
   }
   updatePosition();
 })();

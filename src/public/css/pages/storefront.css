@@ -26,6 +26,7 @@ html[dir="rtl"] .site-nav, html[dir="rtl"] .hero-shop-button, html[dir="rtl"] .l
 .icon-button:hover { background: #f5f5f5; }
 .icon { flex-shrink: 0; }
 .header-actions .icon { width: 25px; height: 25px; }
+.wishlist-header-toggle { position: relative; }
 .navigation-row { grid-column: 1; grid-row: 1; }
 .site-nav { display: flex; align-items: center; gap: 28px; font-size: 17px; letter-spacing: .04em; }
 .site-nav a { display: flex; align-items: center; min-height: 44px; padding: 6px 0; text-underline-offset: 5px; white-space: nowrap; }
@@ -221,6 +222,7 @@ html.has-scroll-reveal .category-card:not(.is-visible), html.has-scroll-reveal .
 @media (max-width: 1000px) { .category-grid, .product-grid, .collection-products .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 761px) and (max-width: 1000px) { .category-grid--secondary { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 850px) {
+  .wishlist-header-toggle { display: none; }
   .shop-header .container { width: calc(100% - 40px); }
   .header-top { grid-template-columns: 44px minmax(0, 1fr); gap: 0 8px; min-height: 0; padding-block: 0 6px; }
   .shop-brand { grid-column: 1 / -1; grid-row: 1; }

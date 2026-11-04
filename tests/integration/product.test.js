@@ -8,7 +8,7 @@ describe('product detail pages', () => {
     expect(response.text).toContain('id="product-title"');
     expect(response.text).toContain('id="specifications-title">More information');
     expect(response.text).toContain('/assets/images/products/');
-    expect(response.text).toContain('purchasing is not connected');
+    expect(response.text).toContain('Currently unavailable.');
   });
   it('rejects variants that do not belong to the requested product', async () => {
     const products = details.products;

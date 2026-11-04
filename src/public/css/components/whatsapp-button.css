@@ -7,7 +7,8 @@
   bottom: var(--whatsapp-offset, var(--whatsapp-edge));
   width: var(--whatsapp-size);
   height: var(--whatsapp-size);
-  z-index: 6;
+  /* Keep the floating contact action reachable above the mobile navigation. */
+  z-index: 45;
 }
 html[dir="rtl"] .whatsapp-contact { --whatsapp-label-shift: -100%; }
 .whatsapp-contact__link {
@@ -66,6 +67,8 @@ html[dir="rtl"] .whatsapp-contact { --whatsapp-label-shift: -100%; }
 }
 @media (max-width: 760px) {
   .whatsapp-contact { --whatsapp-size: 40px; --whatsapp-edge: 14px; }
+  /* Clear the 70px bottom bar plus its lower margin on short mobile viewports. */
+  .whatsapp-contact { --whatsapp-offset: calc(108px + env(safe-area-inset-bottom, 0px)); }
   /* Extend the hit area to 44px without enlarging the visible icon. */
   .whatsapp-contact__link::after { content: ''; position: absolute; inset: -2px; border-radius: 50%; }
   .whatsapp-contact__icon { width: 24px; height: 24px; }

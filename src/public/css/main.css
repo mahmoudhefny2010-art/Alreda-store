@@ -2,6 +2,7 @@
 @import url('./pages/storefront.css?v=push-connect-20261103-1');
 @import url('./pages/admin-workspace.css?v=admin-workspace-20261103-1');
 @import url('./pages/admin-management.css?v=admin-management-20261102-2');
+@import url('./components/wishlist-navigation.css?v=footer-navigation-20261104-2');
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }

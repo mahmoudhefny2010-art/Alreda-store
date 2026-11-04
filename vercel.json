@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "express",
+  "buildCommand": "npm run build",
+  "installCommand": "npm ci",
+  "crons": [{ "path": "/api/jobs/run", "schedule": "0 7 * * *" }],
+  "functions": {
+    "app.js": {
+      "maxDuration": 60,
+      "includeFiles": "{src/views/**,src/config/*.json}"
+    }
+  },
+  "headers": [
+    { "source": "/assets/(.*)", "headers": [{ "key": "X-Content-Type-Options", "value": "nosniff" }, { "key": "Cache-Control", "value": "public, max-age=3600" }] },
+    { "source": "/service-worker.js", "headers": [{ "key": "Service-Worker-Allowed", "value": "/" }, { "key": "Cache-Control", "value": "no-cache" }] },
+    { "source": "/OneSignalSDKWorker.js", "headers": [{ "key": "Service-Worker-Allowed", "value": "/onesignal/" }, { "key": "Cache-Control", "value": "no-cache" }] },
+    { "source": "/onesignal/OneSignalSDKWorker.js", "headers": [{ "key": "Service-Worker-Allowed", "value": "/onesignal/" }, { "key": "Cache-Control", "value": "no-cache" }] }
+  ]
+}

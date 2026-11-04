@@ -1,0 +1,10 @@
+<section class="wishlist-page container" data-wishlist
+  data-empty-title="<%= t('wishlistEmptyTitle') %>" data-empty-copy="<%= t('wishlistEmptyCopy') %>" data-discover="<%= t('discoverProducts') %>"
+  data-remove="<%= t('removeFavorite') %>" data-add="<%= t('addToCart') %>" data-added="<%= t('cartAdded') %>"
+  data-unavailable="<%= t('wishlistUnavailable') %>" data-out-of-stock="<%= t('outOfStock') %>" data-choose="<%= t('wishlistChooseVariant') %>"
+  data-error="<%= t('wishlistLoadError') %>" data-price-label="<%= t('priceUnavailable') %>">
+  <header class="wishlist-heading"><p class="eyebrow"><%= t('catalogLabel') %></p><h1><%= t('wishlistTitle') %></h1><p><%= t('wishlistIntro') %></p></header>
+  <p class="wishlist-status" data-wishlist-status role="status" aria-live="polite"></p>
+  <div class="wishlist-grid" data-wishlist-grid></div>
+  <section class="wishlist-empty" data-wishlist-empty hidden><span class="wishlist-empty-icon" aria-hidden="true"><%- include('../partials/icon', { name: 'heart' }) %></span><h2 data-empty-heading></h2><p data-empty-message></p><a class="button" href="/products" data-discover-link><%= t('discoverProducts') %></a></section>
+</section>
