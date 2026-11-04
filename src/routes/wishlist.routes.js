@@ -8,6 +8,7 @@ const { getDatabaseCatalog } = require('../services/catalog.repository');
 const { getProductFromData } = require('../services/product.service');
 const { productName, translate } = require('../config/storefront-i18n');
 const formatPrice = require('../utils/formatPrice');
+const { optimizedImageUrl } = require('../utils/optimizedImage');
 const { sameOrigin } = require('./auth.routes');
 
 const UUID = z.uuid();
@@ -37,12 +38,12 @@ function createWishlistRoutes({ repository = createWishlistRepository(getPrismaC
         const detail = getProductFromData(data, record.slug, { locale: req.locale })?.product;
         if (!detail) return { id, unavailable: true };
         const variants = detail.variants.map(variant => ({ id: variant.databaseId || '', title: variant.title, price: variant.currentFormatted,
-          compareAt: variant.compareAtFormatted || '', image: variant.gallerySrc || record.gallery[0]?.src || '', available: variant.purchaseEligible === true }));
+          compareAt: variant.compareAtFormatted || '', image: optimizedImageUrl(variant.gallerySrc || record.gallery[0]?.src || '', 'product-card'), available: variant.purchaseEligible === true }));
         const options = detail.optionGroups.map(group => ({ name: group.name, values: group.values.map(choice => ({ value: choice.value, label: choice.displayValue })) }));
         const hasOptions = options.length > 0 || variants.length > 1;
         const chosen = variants.length === 1 && !hasOptions ? variants[0] : null;
         return { id, productId: record.id, unavailable: false, slug: record.slug, href: `/products/${encodeURIComponent(record.slug)}`, name: productName(record, req.locale),
-          image: detail.primaryImage?.displaySrc || record.gallery[0]?.displaySrc || '', status: variants.some(v => v.available) ? translate(req.locale, 'available') : translate(req.locale, 'outOfStock'),
+          image: detail.primaryImage?.cardSrc || record.gallery[0]?.cardSrc || '', status: variants.some(v => v.available) ? translate(req.locale, 'available') : translate(req.locale, 'outOfStock'),
           outOfStock: !variants.some(v => v.available), variants, options, hasOptions, selectedVariantId: chosen?.id || '', price: chosen?.price || variants[0]?.price || formatPrice(record.priceEgp || 0, req.locale),
           compareAt: chosen?.compareAt || variants[0]?.compareAt || '', chooseLabel: translate(req.locale, 'wishlistChooseVariant'),
         };

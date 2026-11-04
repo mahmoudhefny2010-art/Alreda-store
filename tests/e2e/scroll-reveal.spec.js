@@ -40,6 +40,7 @@ test('card hover is subtle on desktop and disabled for touch input', async ({ br
   const desktopContext = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const desktopPage = await desktopContext.newPage();
   await desktopPage.goto('/products');
+  await desktopPage.locator('[data-welcome-close]').click();
   const desktopCard = desktopPage.locator('.product-card').first();
   await desktopCard.scrollIntoViewIfNeeded();
   await expect(desktopCard).toHaveClass(/is-visible/);
@@ -52,6 +53,7 @@ test('card hover is subtle on desktop and disabled for touch input', async ({ br
   const touchContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
   const touchPage = await touchContext.newPage();
   await touchPage.goto('/products');
+  await touchPage.locator('[data-welcome-close]').click();
   const touchCard = touchPage.locator('.product-card').first();
   await touchCard.scrollIntoViewIfNeeded();
   await expect(touchCard).toHaveClass(/is-visible/);

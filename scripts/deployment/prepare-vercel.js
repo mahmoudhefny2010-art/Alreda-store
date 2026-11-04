@@ -5,10 +5,11 @@ async function prepareVercel(root = path.resolve(__dirname, '../..')) {
   const source = path.join(root, 'src/public');
   const output = path.join(root, 'public');
   const localImageCaches = new Set(['products', 'collections', 'catalog-preview', 'collection-previews', 'product-details']);
+  const rootResources = new Set(['manifest.webmanifest', 'offline.html', 'service-worker.js', 'onesignal']);
   await fs.mkdir(path.join(output, 'assets'), { recursive: true });
   await fs.cp(source, path.join(output, 'assets'), { recursive: true, filter: filename => {
     const parts = path.relative(source, filename).split(path.sep);
-    return !(parts[0] === 'images' && localImageCaches.has(parts[1]));
+    return !rootResources.has(parts[0]) && !(parts[0] === 'images' && localImageCaches.has(parts[1]));
   } });
   for (const filename of ['manifest.webmanifest', 'offline.html', 'service-worker.js']) {
     await fs.copyFile(path.join(source, filename), path.join(output, filename));

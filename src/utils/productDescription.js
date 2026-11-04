@@ -1,5 +1,18 @@
 const sanitizeDescription = require('./sanitizeProductDescription');
 const sanitizeHtml = require('sanitize-html');
+const descriptions = new Map();
+function analyzeDescription(value) {
+  if (descriptions.has(value)) return descriptions.get(value);
+  const html = sanitizeDescription(value);
+  const result = Object.freeze({ html, ...contentLanguage(html) });
+  // Public text only, keyed by its contents so edits take effect immediately.
+  // Bound both entry count and entry size on small free-tier instances.
+  if (value.length <= 16384 && html.length <= 16384) {
+    if (descriptions.size >= 64) descriptions.delete(descriptions.keys().next().value);
+    descriptions.set(value, result);
+  }
+  return result;
+}
 
 function contentLanguage(html) {
   const text = sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} });
@@ -16,8 +29,7 @@ function productDescription(record, locale = 'en') {
     ? [record.descriptionArHtml, record.descriptionHtml]
     : [record.descriptionHtml, record.descriptionArHtml])
     .filter(value => typeof value === 'string')
-    .map(sanitizeDescription)
-    .map(html => ({ html, ...contentLanguage(html) }))
+    .map(analyzeDescription)
     .filter(value => value.readable);
   const selected = candidates.find(value => value.language === locale) || candidates[0];
   return selected ? { html: selected.html, language: selected.language, originalLanguage: selected.language !== locale }

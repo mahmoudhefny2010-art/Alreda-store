@@ -1,6 +1,8 @@
 const path = require('node:path');
 const express = require('express');
 const helmet = require('helmet');
+const compression = require('compression');
+const { assetUrl, isVersionedAsset } = require('./utils/staticAssets');
 const routes = require('./routes');
 const notFound = require('./middleware/notFound.middleware');
 const errorHandler = require('./middleware/error.middleware');
@@ -39,6 +41,9 @@ function createApp({ environment = 'development', logger = console, whatsappSett
   app.disable('x-powered-by');
   app.set('view engine', 'ejs');
   app.set('views', path.join(__dirname, 'views'));
+  app.set('view cache', environment === 'production');
+  // Vercel compresses at its edge. Other hosts need negotiated HTTP compression.
+  if (!process.env.VERCEL) app.use(compression({ level: 4, threshold: 1024 }));
   app.use(helmet({ strictTransportSecurity: environment === 'production' ? undefined : false,
     contentSecurityPolicy: { directives: { upgradeInsecureRequests: environment === 'production' ? [] : null,
       // The Web SDK loads its configuration using JSONP from the API origin.
@@ -46,7 +51,15 @@ function createApp({ environment = 'development', logger = console, whatsappSett
       connectSrc: ["'self'", ...(authSettings.ONESIGNAL_APP_ID ? ['https://onesignal.com', 'https://api.onesignal.com', 'https://cdn.onesignal.com'] : [])],
       workerSrc: ["'self'", 'blob:'], imgSrc: ["'self'", 'data:', ...(media.cloudName ? [`https://res.cloudinary.com/${media.cloudName}/`] : [])] } } }));
   // Public files must not authenticate or perform per-customer database queries.
-  app.use('/assets', express.static(path.join(__dirname, 'public'), { dotfiles: 'deny', maxAge: environment === 'production' ? '1h' : 0 }));
+  app.locals.assetUrl = filename => environment === 'production' ? assetUrl(filename) : filename;
+  app.use('/assets', express.static(path.join(__dirname, 'public'), {
+    dotfiles: 'deny', maxAge: environment === 'production' ? '1h' : 0,
+    setHeaders: (res, filename) => {
+      if (environment === 'production' && isVersionedAsset(filename, res.req.query.v)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+    },
+  }));
   app.get('/manifest.webmanifest', (req, res) => res.sendFile(path.join(__dirname, 'public', 'manifest.webmanifest')));
   app.get('/offline.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'offline.html')));
   app.get('/service-worker.js', (req, res) => res.sendFile(path.join(__dirname, 'public', 'service-worker.js'), { headers: { 'Service-Worker-Allowed': '/', 'Cache-Control': 'no-cache' } }));
@@ -61,9 +74,12 @@ function createApp({ environment = 'development', logger = console, whatsappSett
   app.locals.logger = logger;
   app.locals.whatsapp = createWhatsAppConfig(whatsappSettings);
   app.locals.mediaAsset = media.assetUrl;
+  app.locals.mediaCloudName = media.cloudName;
   app.locals.formatPrice = formatPrice;
   app.locals.cityName = cityName;
   app.use(createCustomerSessionMiddleware({ secure: environment === 'production', ...(authRepository ? { repository: authRepository } : {}) }));
+  // Pages contain account/CSRF state. Only static assets may use a public cache.
+  app.use((req, res, next) => { res.set('Cache-Control', 'private, no-store'); next(); });
   app.use((req, res, next) => {
     const locale = /(?:^|;\s*)alreda_locale=ar(?:;|$)/.test(req.get('cookie') || '') ? 'ar' : 'en';
     req.locale = locale;
@@ -76,7 +92,8 @@ function createApp({ environment = 'development', logger = console, whatsappSett
     res.locals.a = key => adminText(locale, key);
     res.locals.dashboardText = key => dashboardText(locale, key);
     res.locals.adminPath = req.path;
-    res.locals.number = value => new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-US').format(value);
+    const numberFormat = new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-US');
+    res.locals.number = value => numberFormat.format(value);
     res.locals.productCount = value => {
       const count = Number(value);
       if (locale === 'ar') return count === 0 ? 'لا توجد منتجات' : count === 1 ? 'منتج واحد' : count === 2 ? 'منتجان' : `${res.locals.number(count)} منتجًا`;
@@ -87,7 +104,7 @@ function createApp({ environment = 'development', logger = console, whatsappSett
   app.use(createAuthRoutes({ config: authConfig, ...(authRepository ? { repository: authRepository } : {}), cartRepository: cartStore, logger }));
   app.use(async (req, res, next) => {
     res.locals.notificationPreferences = { transactional_enabled: true, marketing_enabled: false };
-    if (req.customer && app.locals.onesignalAppId) {
+    if (req.customer && app.locals.onesignalAppId && req.method === 'GET' && !/^\/(?:api|health)(?:\/|$)/.test(req.path)) {
       try { res.locals.notificationPreferences = await getPrismaClient().notification_preferences.findUnique({ where: { user_id: req.customer.id } }) || res.locals.notificationPreferences; }
       catch { /* Account page stays usable while optional notification preferences are unavailable. */ }
     }

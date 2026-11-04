@@ -40,8 +40,17 @@ function loader() {
   return { classes, listeners, documentListeners, timers };
 }
 describe('recoverable page loading overlay', () => {
-  it('hides on load, restores correctly from history and never holds a page indefinitely', () => {
-    const test = loader(); expect(test.classes.has('is-page-loading')).toBe(true);
+  it('keeps the first page visible before DOM readiness', () => {
+    const test = loader();
+    expect(test.classes.has('is-page-loading')).toBe(false);
+    test.documentListeners.DOMContentLoaded();
+    expect(test.classes.has('is-page-loading')).toBe(false);
+    expect(test.timers.size).toBe(0);
+  });
+  it('shows feedback for internal navigation, then recovers and never holds indefinitely', () => {
+    const test = loader(); expect(test.classes.has('is-page-loading')).toBe(false);
+    test.documentListeners.click({ button: 0, target: { closest: selector => selector === 'a[href]' ? { href: 'https://store.example/cart', hasAttribute: () => false } : null } });
+    expect(test.classes.has('is-page-loading')).toBe(true);
     expect([...test.timers.values()][0].delay).toBe(8000); [...test.timers.values()][0].fn();
     expect(test.classes.has('is-page-loading')).toBe(false);
     const second = loader(); second.listeners.pageshow(); expect(second.classes.size).toBe(0);

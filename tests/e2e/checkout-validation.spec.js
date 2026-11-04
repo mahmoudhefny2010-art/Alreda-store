@@ -118,3 +118,44 @@ test('checkout allows retry after a confirmed validation failure and finishes a 
   expect(keys).toHaveLength(2);
   expect(keys[0]).not.toBe(keys[1]);
 });
+
+test('late inventory replies preserve confirmed orders and duplicate submits make one request', async ({ page }) => {
+  await page.clock.install();
+  await page.route('**/assets/js/cart.js*', route => route.fulfill({ contentType: 'text/javascript', body: '' }));
+  await page.context().addCookies([{ name: 'alreda_session', value: sessionToken, url: baseOrigin }]);
+  await page.goto(`${baseOrigin}/checkout`);
+  await page.getByLabel('Full name').fill('Synthetic Buyer');
+  await page.getByLabel('Phone', { exact: true }).fill('01012345678');
+  await page.getByLabel('Delivery address').fill('Synthetic test address');
+  await page.locator('[data-product-id]').fill('1');
+  let releaseInventory; const inventoryHeld = new Promise(resolve => { releaseInventory = resolve; });
+  let inventoryRequests = 0, orderRequests = 0;
+  await page.route('**/api/cart', async route => {
+    inventoryRequests++; await inventoryHeld;
+    await route.fulfill({ json: { cart_items: [{ product_id: itemId, quantity: 1,
+      products: { id: itemId, name: 'Late stock reply', price_egp: 200, stock_quantity: 4, is_available: true } }] } });
+  });
+  await page.route('**/api/orders', async route => {
+    orderRequests++;
+    await route.fulfill({ json: { state: 'confirmed', confirmed: true, order: {
+      reference: 'AS-SYNTHETIC', paymentMethod: 'CASH_ON_DELIVERY', paymentStatus: 'UNPAID',
+      items: [{ product_name: 'Synthetic product', quantity: 1, unit_price_egp: 100 }], subtotalEgp: 100, shippingEgp: 25, totalEgp: 125,
+    } } });
+  });
+  try {
+    await page.clock.fastForward(5 * 60 * 1000);
+    await expect.poll(() => inventoryRequests).toBe(1);
+    await page.locator('#checkout-form').evaluate(form => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+    await expect(page.locator('#checkout-status')).toHaveText('Order Confirmed');
+    const returned = page.waitForResponse(response => new URL(response.url()).pathname === '/api/cart');
+    releaseInventory(); await (await returned).finished();
+    await page.clock.runFor(100);
+    await expect(page.locator('#checkout-status')).toHaveText('Order Confirmed');
+    await page.clock.fastForward(5 * 60 * 1000);
+    expect(inventoryRequests).toBe(1);
+    expect(orderRequests).toBe(1);
+  } finally { releaseInventory(); }
+});

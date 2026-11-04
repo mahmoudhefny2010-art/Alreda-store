@@ -102,7 +102,7 @@ test('real browser customer journey and persisted administrator order lifecycle'
     await adminPage.goto(appOrigin + '/admin/orders'); await expect(adminPage.locator('.admin-order-card')).toContainText(order.order_number); await snap(adminPage, '08-admin-list');
     await adminPage.locator('.admin-order-card .button').click(); await expect(adminPage.locator('.order-detail-heading')).toContainText(order.order_number);
     for (const status of ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED']) {
-      await adminPage.locator('select[name="status"]').selectOption(status); await adminPage.locator('.order-action-panel button[type="submit"]').click();
+      await adminPage.locator('select[name="status"]').selectOption(status); await adminPage.locator('.order-action-panel').getByRole('button', { name: 'Save status', exact: true }).click();
       await expect.poll(async () => (await database.client.orders.findUnique({ where: { id: order.id } })).status).toBe(status);
     }
     await snap(adminPage, '09-admin-delivered');

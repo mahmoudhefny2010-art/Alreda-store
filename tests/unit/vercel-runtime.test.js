@@ -25,4 +25,7 @@ it('builds CDN paths without copying local product caches', async () => {
   expect(await fs.readFile(path.join(root, 'public/assets/js/main.js'), 'utf8')).toBe('js/main.js');
   expect(await fs.readFile(path.join(root, 'public/OneSignalSDKWorker.js'), 'utf8')).toBe('onesignal/OneSignalSDKWorker.js');
   await expect(fs.stat(path.join(root, 'public/assets/images/products/unused.jpg'))).rejects.toThrow();
+  for (const filename of ['manifest.webmanifest', 'offline.html', 'service-worker.js', 'onesignal/OneSignalSDKWorker.js']) {
+    await expect(fs.stat(path.join(root, 'public/assets', filename))).rejects.toThrow();
+  }
 });

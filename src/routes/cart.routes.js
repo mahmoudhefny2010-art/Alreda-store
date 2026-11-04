@@ -24,6 +24,8 @@ function createCartRoutes({ repository = createCartRepository(), secure = proces
   }
   router.use('/api/cart', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
   router.get('/api/cart', async (req, res) => {
+    const token = readCookie(req.get('cookie'), cookieName);
+    if (!req.customer && !/^[A-Za-z0-9_-]{40,64}$/.test(token)) return res.json({ cart_items: [] });
     try { return res.json(await repository.get(context(req, res))); } catch (error) { return sendError(error, res); }
   });
   router.post('/api/cart/items', async (req, res) => {

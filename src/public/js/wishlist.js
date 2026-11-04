@@ -87,6 +87,11 @@
           const merged = await request('/api/wishlist/merge', { method: 'POST', body: JSON.stringify({ identifiers: guest }) });
           localStorage.removeItem(STORE_KEY);
           storeIds(merged.ids || []);
+        } else if (!root) {
+          // The wishlist page already gets IDs with its item response. Other
+          // signed-in pages need this small read to restore the saved hearts.
+          const saved = await request('/api/wishlist/ids');
+          storeIds(saved.ids || []);
         }
       } catch {
         databaseWishlistAvailable = false;
@@ -158,8 +163,11 @@
     if (item.hasOptions && !variantId) { announce(root.dataset.choose); select?.focus(); return; }
     button.disabled = true;
     try {
-      await request('/api/cart/items', { method: 'POST', body: JSON.stringify({ productId: item.productId, quantity: 1, ...(variantId ? { variantId } : {}) }) });
-      document.dispatchEvent(new Event('cart:refresh'));
+      const input = { productId: item.productId, quantity: 1, ...(variantId ? { variantId } : {}) };
+      const cart = window.AlredaCart
+        ? await window.AlredaCart.add(input)
+        : await request('/api/cart/items', { method: 'POST', body: JSON.stringify(input) });
+      document.dispatchEvent(new CustomEvent('cart:refresh', { detail: cart }));
       announce(root.dataset.added);
       button.textContent = root.dataset.added;
       window.setTimeout(() => { if (button.isConnected) { button.textContent = root.dataset.add; button.disabled = false; } }, 1800);

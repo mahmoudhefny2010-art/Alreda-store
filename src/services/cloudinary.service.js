@@ -4,7 +4,7 @@ const { MediaError, mediaInputSchema, entityId, validateImage } = require('../va
 const { resolveMediaFolder, assertManagedPublicId } = require('../utils/mediaPath');
 const { recordMediaEvent } = require('../repositories/media-journal.repository');
 const profiles = Object.freeze({ thumbnail: 160, 'product-card': 640, 'product-detail': 1200,
-  'category-card': 640, 'homepage-banner': 1920, 'mobile-banner': 768 });
+  'category-card': 640, 'homepage-banner': 1920, 'mobile-banner': 768, 'mobile-banner-retina': 1280 });
 const responseSchema = z.object({ public_id: z.string(), asset_id: z.string().min(1).max(200), secure_url: z.url(),
   resource_type: z.literal('image'), type: z.literal('upload').optional(), width: z.number().int().positive(), height: z.number().int().positive(),
   format: z.enum(['jpg', 'jpeg', 'png', 'webp', 'avif']), bytes: z.number().int().positive(), version: z.number().int().positive(),
@@ -77,11 +77,11 @@ function createCloudinaryService({ config, client, repository = null, authorize 
             if (result.context?.custom?.content_sha256 !== image.contentHash) throw new Error();
           }
           const asset = normalizeResponse(result, publicId, folder, mode, image.contentHash);
-          await journal({ event: 'asset_uploaded', publicId: asset.publicId, assetId: asset.assetId });
+          await journal({ event: 'asset_uploaded', publicId: asset.publicId, assetId: asset.assetId }, context);
           uploaded.set(publicId, asset);
           return asset;
         } catch {
-          await journal({ event: 'upload_reconciliation_required', publicId, code: 'RESPONSE_OR_JOURNAL_FAILURE' });
+          await journal({ event: 'upload_reconciliation_required', publicId, code: 'RESPONSE_OR_JOURNAL_FAILURE' }, context);
           throw new MediaError('CLOUDINARY_RECONCILIATION_REQUIRED', 502);
         }
       })();
@@ -97,23 +97,23 @@ function createCloudinaryService({ config, client, repository = null, authorize 
     const record = await uploadAsset(kind, buffer, input, context);
     if (!repository) return { ...record, persisted: false };
     try { return { ...record, id: await repository.attachImage(record, context), persisted: true }; }
-    catch { await journal({ event: 'association_failed', publicId: record.publicId, assetId: record.assetId }); throw new MediaError('MEDIA_ASSOCIATION_FAILED', 503); }
+    catch { await journal({ event: 'association_failed', publicId: record.publicId, assetId: record.assetId }, context); throw new MediaError('MEDIA_ASSOCIATION_FAILED', 503); }
   }
   function requireRepository() {
     if (!repository || !['getImage', 'replaceImageAssociation', 'detachImage', 'withUnreferencedAsset'].every(method => typeof repository[method] === 'function')) throw new MediaError('MEDIA_PERSISTENCE_NOT_READY', 503);
   }
-  async function cleanup(record) {
+  async function cleanup(record, context) {
     assertManagedPublicId(record.publicId, config.rootFolder);
     try {
       // The repository must lock ALL association creation/removal for this asset through this callback.
       return await repository.withUnreferencedAsset(record, async () => {
-        await journal({ event: 'asset_delete_started', publicId: record.publicId, assetId: record.assetId });
+        await journal({ event: 'asset_delete_started', publicId: record.publicId, assetId: record.assetId }, context);
         const result = await client.api.delete_resources_by_asset_ids([record.assetId], { ...credentials(), invalidate: true });
         if (!['deleted', 'not_found'].includes(result.deleted?.[record.assetId])) throw new Error();
-        await journal({ event: 'asset_deleted', publicId: record.publicId, assetId: record.assetId });
+        await journal({ event: 'asset_deleted', publicId: record.publicId, assetId: record.assetId }, context);
         return { deleted: true };
       });
-    } catch { await journal({ event: 'asset_cleanup_pending', publicId: record.publicId, assetId: record.assetId }); return { cleanupPending: true }; }
+    } catch { await journal({ event: 'asset_cleanup_pending', publicId: record.publicId, assetId: record.assetId }, context); return { cleanupPending: true }; }
   }
   async function ownedImage(id, context, operation) {
     await permit(context, operation);
@@ -130,15 +130,15 @@ function createCloudinaryService({ config, client, repository = null, authorize 
     const previous = await ownedImage(id, context, 'replace');
     const replacement = await uploadAsset(previous.kind, buffer, previous.target, context);
     try { await repository.replaceImageAssociation(id, previous.assetId, replacement, context); }
-    catch { await journal({ event: 'replacement_association_failed', publicId: replacement.publicId, assetId: replacement.assetId, mediaId: id }); throw new MediaError('MEDIA_ASSOCIATION_FAILED', 503); }
-    const result = previous.assetId === replacement.assetId ? { retained: true } : await cleanup(previous);
+    catch { await journal({ event: 'replacement_association_failed', publicId: replacement.publicId, assetId: replacement.assetId, mediaId: id }, context); throw new MediaError('MEDIA_ASSOCIATION_FAILED', 503); }
+    const result = previous.assetId === replacement.assetId ? { retained: true } : await cleanup(previous, context);
     return { ...replacement, id, persisted: true, cleanup: result };
   }
   async function deleteImage(id, context) {
     const previous = await ownedImage(id, context, 'delete');
     credentials();
     await repository.detachImage(id, previous.assetId, context);
-    return { detached: true, cleanup: await cleanup(previous) };
+    return { detached: true, cleanup: await cleanup(previous, context) };
   }
   async function deleteCatalogAsset(record, context) {
     await permit(context, 'delete', { kind: 'product', publicId: record?.public_id });
@@ -150,10 +150,10 @@ function createCloudinaryService({ config, client, repository = null, authorize 
         : await client.api.delete_resources([publicId], { ...credentials(), resource_type: 'image', type: 'upload', invalidate: true });
       const deleted = result.deleted?.[assetId || publicId];
       if (!['deleted', 'not_found'].includes(deleted)) throw new Error('CLOUDINARY_DELETE_FAILED');
-      await journal({ event: 'asset_deleted', publicId, ...(assetId ? { assetId } : {}) });
+      await journal({ event: 'asset_deleted', publicId, ...(assetId ? { assetId } : {}) }, context);
       return { deleted: true };
     } catch {
-      await journal({ event: 'asset_cleanup_pending', publicId, ...(assetId ? { assetId } : {}), code: 'CLOUDINARY_DELETE_FAILED' });
+      await journal({ event: 'asset_cleanup_pending', publicId, ...(assetId ? { assetId } : {}), code: 'CLOUDINARY_DELETE_FAILED' }, context);
       return { deleted: false, code: 'CLOUDINARY_DELETE_FAILED' };
     }
   }

@@ -2,6 +2,7 @@ const { createHash, randomBytes } = require('node:crypto');
 const { getPrismaClient } = require('../config/prisma');
 const { selection, variantPrice } = require('../services/purchase-selection.service');
 const { activeDiscounts, effectivePrice } = require('../services/discount.service');
+const { optimizedImageUrl } = require('../utils/optimizedImage');
 
 const digest = value => createHash('sha256').update(value).digest('hex');
 const cartProjection = { id: true, status: true, updated_at: true, cart_items: { select: { id: true, product_id: true, variant_id: true, product_variants: true, quantity: true, products: { select: { id: true, name: true, name_ar: true, price_egp: true, sale_price_egp: true, image_url: true, stock_quantity: true, is_available: true, source_id: true, category_id: true, catalog_details: true, product_categories: { select: { category_id: true } } } } } } };
@@ -9,8 +10,10 @@ const cartProjection = { id: true, status: true, updated_at: true, cart_items: {
 function createCartRepository(clientProvider = getPrismaClient) {
   const db = () => clientProvider();
   async function hydrate(tx, cart) {
+    if (!cart.cart_items.length) return cart;
     const rules = await activeDiscounts(tx);
     for (const item of cart.cart_items) {
+      item.products.image_url = optimizedImageUrl(item.products.image_url, 'thumbnail');
       item.products.sale_price_egp = item.product_variants ? variantPrice(item.products, item.product_variants, rules) : effectivePrice(item.products, rules);
       if (item.product_variants) {
         item.products.name += ' - ' + item.product_variants.title;
@@ -36,10 +39,14 @@ function createCartRepository(clientProvider = getPrismaClient) {
     newGuestToken() { return randomBytes(32).toString('base64url'); },
     hashGuestToken: digest,
     async get({ userId, guestToken }) {
-      return db().$transaction(async tx => {
-        const cart = await resolve(tx, userId, guestToken ? digest(guestToken) : '');
-        return hydrate(tx, await tx.shopping_carts.findUnique({ where: { id: cart.id }, select: cartProjection }));
-      });
+      if (!userId && !guestToken) return { cart_items: [] };
+      // Reads neither create empty carts nor acquire transaction/advisory locks.
+      // Mutations still use resolve() inside their existing transactions.
+      const client = db();
+      const cart = await client.shopping_carts.findFirst({ where: {
+        ...(userId ? { user_id: userId } : { guest_token_hash: digest(guestToken) }), status: 'ACTIVE',
+      }, select: cartProjection });
+      return cart ? hydrate(client, cart) : { cart_items: [] };
     },
     async add({ userId, guestToken, productId, variantId, quantity }) {
       return db().$transaction(async tx => {

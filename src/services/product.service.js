@@ -37,5 +37,11 @@ function getProductFromData(data, slug, { variant, collection, locale = 'en' } =
   }, relatedProducts: related.filter(item => item.sourceId !== record.sourceId).slice(0, 4).map(item => productCard(item, category.slug, locale)) };
 }
 function getProduct(slug, options) { return getProductFromData({ catalog, products, bySlug, categories, byCategory }, slug, options); }
-async function getDatabaseProduct(slug, options) { return getProductFromData(await getDatabaseCatalog(), slug, options); }
+async function getDatabaseProduct(slug, options) {
+  let data = await getDatabaseCatalog(null, { productSlug: slug, ...(options?.collection ? { collectionSlug: options.collection } : {}) });
+  const record = data.bySlug.get(slug);
+  // Uncategorised products retain the existing all-products related selection.
+  if (record && !options?.collection && !data.categories.some(category => record.collectionIds.includes(category.sourceId))) data = await getDatabaseCatalog();
+  return getProductFromData(data, slug, options);
+}
 module.exports = { getProduct, getProductFromData, getDatabaseProduct };

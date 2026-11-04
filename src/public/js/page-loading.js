@@ -4,7 +4,8 @@
   let timeout;
   function finish() { root.classList.remove('is-page-loading'); clearTimeout(timeout); window.dispatchEvent(new Event('alreda:page-ready')); }
   function start() { root.classList.add('is-page-loading'); clearTimeout(timeout); timeout = setTimeout(finish, 8000); }
-  start();
+  // Keep the first paint visible. The overlay is only for an in-page navigation.
+  document.addEventListener('DOMContentLoaded', finish, { once: true });
   window.addEventListener('load', finish, { once: true });
   window.addEventListener('pageshow', finish);
   document.addEventListener('click', event => {

@@ -29,5 +29,7 @@ function getCollectionFromData(data, slug, { q = '', sort = 'featured', page = 1
     products: matches.slice((page - 1) * pageSize, page * pageSize).map(product => productCard(product, displayCategory.slug, locale)) };
 }
 function getCollection(slug, options) { return getCollectionFromData({ catalog, products: productIndex, categories, byCategory }, slug, options); }
-async function getDatabaseCollection(slug, options) { return getCollectionFromData(await getDatabaseCatalog(), slug, options); }
+async function getDatabaseCollection(slug, options) {
+  return getCollectionFromData(await getDatabaseCatalog(null, { collectionSlug: slug }), slug, options);
+}
 module.exports = { getCollection, getCollectionFromData, getDatabaseCollection, pageSize };

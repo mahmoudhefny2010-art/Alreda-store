@@ -6,5 +6,5 @@ const { readEnvironment } = require('./src/config/environment');
 const environment = readEnvironment();
 const app = express();
 app.disable('x-powered-by');
-app.use(createApp({ environment: environment.NODE_ENV }));
+app.use(createApp({ environment: process.env.VERCEL ? 'production' : environment.NODE_ENV }));
 module.exports = app;

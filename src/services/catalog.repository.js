@@ -4,6 +4,7 @@ const { readDatabaseConfig } = require('../config/database');
 const { getPrismaClient } = require('../config/prisma');
 const { activeDiscounts, effectivePrice } = require('./discount.service');
 const { variantPrice, variantColor } = require('./purchase-selection.service');
+const { optimizedImageUrl } = require('../utils/optimizedImage');
 const pendingDatabaseReads = new Map();
 let pendingHomepageRead;
 const catalog = createMediaDelivery().applyCatalog(require('../config/catalog.json'));
@@ -41,12 +42,12 @@ function parseJson(value, fallback) {
   try { return JSON.parse(value); } catch { return fallback; }
 }
 
-async function getDatabaseCatalog(productIds = null) {
+async function getDatabaseCatalog(productIds = null, scope = {}) {
   if (!readDatabaseConfig().enabled) return { catalog, products, bySlug, categories, byCategory, sections: fallbackSections };
   const identifiers = Array.isArray(productIds) ? [...new Set(productIds)].sort() : null;
-  const key = identifiers ? identifiers.join(',') : '*';
+  const key = JSON.stringify([identifiers, scope]);
   if (pendingDatabaseReads.has(key)) return pendingDatabaseReads.get(key);
-  const read = loadDatabaseCatalog(identifiers);
+  const read = loadDatabaseCatalog(identifiers, scope);
   pendingDatabaseReads.set(key, read);
   try {
     // Inventory, prices and catalog edits must be fresh on the next request,
@@ -80,7 +81,7 @@ async function loadDatabaseHomepage() {
     const original = categories.find(value => value.sourceId === row.source_id) || {};
     return { ...original, id: row.id, sourceId: row.source_id || row.id, slug: row.slug, name: row.name,
       titleEn: row.name, titleAr: row.name_ar, group: row.home_section?.slug || null, homeSectionId: row.home_section_id,
-      homeOrder: row.homepage_order, image: row.image_url || original.image || null,
+      homeOrder: row.homepage_order, image: optimizedImageUrl(row.image_url || original.image, 'category-card') || null,
       productIds: original.productIds || [], href: `/collections/${encodeURIComponent(row.slug)}` };
   });
   const savedCategoriesBySlug = new Map(savedCategories.map(value => [value.slug, value]));
@@ -92,8 +93,20 @@ async function loadDatabaseHomepage() {
     sections: sectionRows.map(row => ({ ...row, titleEn: row.title_en, titleAr: row.title_ar })) };
 }
 
-async function loadDatabaseCatalog(productIds = null) {
+async function loadDatabaseCatalog(productIds = null, scope = {}) {
   const client = getPrismaClient();
+  const collectionSlug = catalog.legacyAliases.find(alias => alias.slug === scope.collectionSlug)?.targetSlug || scope.collectionSlug;
+  const includeDescriptions = Boolean(scope.productSlug) || !Object.hasOwn(scope, 'collectionSlug');
+  // Keep all membership IDs for ordering/navigation, but hydrate only this collection
+  // or the requested product and products sharing its active collections.
+  const where = productIds ? { OR: [{ id: { in: productIds } }, { source_id: { in: productIds } }] }
+    : scope.productSlug ? { OR: [
+      { slug: scope.productSlug },
+      { product_categories: { some: { categories: { is_active: true,
+        ...(collectionSlug ? { slug: collectionSlug } : { product_categories: { some: { products: { slug: scope.productSlug } } } }),
+      } } } },
+    ] }
+    : collectionSlug ? { product_categories: { some: { categories: { is_active: true, slug: collectionSlug } } } } : undefined;
   const [categoryRows, productRows, discountRules, sectionRows] = await Promise.all([
     client.categories.findMany({ where: { is_active: true }, select: {
       id: true, source_id: true, slug: true, name: true, name_ar: true, description: true, description_ar: true,
@@ -101,11 +114,9 @@ async function loadDatabaseCatalog(productIds = null) {
       home_section: { select: { id: true, slug: true } },
       ...(!productIds ? { product_categories: { select: { products: { select: { id: true, source_id: true } } } } } : {}),
     } }),
-    client.products.findMany({ ...(productIds ? { where: { OR: [
-      { id: { in: productIds } }, { source_id: { in: productIds } },
-    ] } } : {}), select: {
-      id: true, source_id: true, category_id: true, name: true, name_ar: true, slug: true, description: true,
-      description_ar: true, price_egp: true, sale_price_egp: true, image_url: true, is_available: true, stock_quantity: true,
+    client.products.findMany({ ...(where ? { where } : {}), select: {
+      id: true, source_id: true, category_id: true, name: true, name_ar: true, slug: true, description: includeDescriptions,
+      description_ar: includeDescriptions, price_egp: true, sale_price_egp: true, image_url: true, is_available: true, stock_quantity: true,
       catalog_details: { select: { presentation: true, color_en: true, type_en: true } },
       product_categories: { select: { category_id: true, categories: { select: { id: true, source_id: true } } } },
       product_variants: { select: {
@@ -117,7 +128,7 @@ async function loadDatabaseCatalog(productIds = null) {
       }, orderBy: [{ display_order: 'asc' }, { id: 'asc' }] },
     } }),
     activeDiscounts(client),
-    client.storefront_sections.findMany({ where: { is_active: true }, select: {
+    Object.keys(scope).length ? Promise.resolve([]) : client.storefront_sections.findMany({ where: { is_active: true }, select: {
       id: true, slug: true, title_en: true, title_ar: true, display_order: true, is_active: true,
     }, orderBy: { display_order: 'asc' } }),
   ]);
@@ -132,7 +143,7 @@ async function loadDatabaseCatalog(productIds = null) {
     });
     return { ...original, group: row.home_section?.slug || null, homeSectionId: row.home_section_id, homeOrder: row.homepage_order, sourceId: row.source_id || row.id, slug: row.slug, name: row.name,
       titleEn: row.name, titleAr: row.name_ar, descriptionHtml: row.description, descriptionArHtml: row.description_ar,
-      image: row.image_url || original.image || null, productIds,
+      image: optimizedImageUrl(row.image_url || original.image, 'category-card') || null, productIds,
       href: `/collections/${encodeURIComponent(row.slug)}` };
   });
   const savedProducts = productRows.filter(row => !row.catalog_details?.presentation?.archivedAt).map(row => {
@@ -169,8 +180,18 @@ async function loadDatabaseCatalog(productIds = null) {
     }
     const gallery = row.product_images.map(image => {
       const source = (original.gallery || []).find(value => value.sourceId === image.source_id) || {};
-      return { ...source, sourceId: image.source_id, src: image.secure_url, cardSrc: source.cardSrc || image.secure_url,
-        displaySrc: source.displaySrc || image.secure_url, thumbSrc: source.thumbSrc || image.secure_url,
+      const sameAsset = source.src === image.secure_url;
+      // Reuse already generated manifest derivatives instead of consuming free-tier
+      // transformation quota for equivalent URLs. Replacements use the saved URL.
+      const cardSrc = sameAsset && source.cardSrc || optimizedImageUrl(image.secure_url, 'product-card');
+      const displaySrc = sameAsset && source.displaySrc || optimizedImageUrl(image.secure_url, 'product-detail');
+      // Saved URLs are authoritative, including after replacing an imported image.
+      const optimized = cardSrc !== image.secure_url;
+      return { ...source, sourceId: image.source_id, src: image.secure_url,
+        cardSrc: optimized ? cardSrc : image.secure_url,
+        displaySrc: optimized ? displaySrc : image.secure_url,
+        thumbSrc: sameAsset && source.thumbSrc || optimizedImageUrl(image.secure_url, 'thumbnail'),
+        srcSet: sameAsset && source.srcSet || (optimized && source.width >= 1200 ? `${cardSrc} 640w, ${displaySrc} 1200w` : ''),
         alt: image.alt_text, position: image.display_order,
         cloudinary: { ...(source.cloudinary || {}), secureUrl: image.secure_url, publicId: image.public_id, assetId: image.asset_id } };
     });

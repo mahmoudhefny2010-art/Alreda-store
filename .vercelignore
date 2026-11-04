@@ -1,4 +1,7 @@
 .git/
+.aws/
+.codex/
+.agents/
 .env
 .env.*
 node_modules/

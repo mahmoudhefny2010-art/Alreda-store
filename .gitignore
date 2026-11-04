@@ -11,6 +11,7 @@ playwright-report/
 data/imports/
 data/media/
 data/database/
+data/performance-session/
 src/config/catalog.json.pending
 src/config/cloudinary-media.json.pending
 .playwright-mcp/

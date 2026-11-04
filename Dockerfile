@@ -10,7 +10,7 @@ COPY prisma.config.js ./
 COPY scripts/database ./scripts/database
 COPY src/config/database.js ./src/config/database.js
 # Client generation needs no production secrets or database connection.
-RUN npm run build && npm prune --omit=dev
+RUN npm run db:generate && npm prune --omit=dev
 
 FROM base AS runtime
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000

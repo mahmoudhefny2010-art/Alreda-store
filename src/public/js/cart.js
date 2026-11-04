@@ -12,12 +12,28 @@
   let feedbackTimer;
   let revision = 0;
   const locale = document.documentElement.lang || 'en';
-  const price = value => new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-EG', { style: 'currency', currency: 'EGP' }).format(value);
+  const priceFormatter = new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-EG', { style: 'currency', currency: 'EGP' });
+  const price = value => priceFormatter.format(value);
   const refreshInterval = 5 * 60 * 1000;
   let cartSignature = '';
   let cartLoaded = false;
   let lastRefreshAt = 0;
   let refreshing = false;
+  let mutationQueue = Promise.resolve();
+
+  function mutate(input, method = 'POST') {
+    // Queue writes across product cards and favorites. A late response must never
+    // replace a newer bag snapshot, and one failed action must not block the next.
+    revision++;
+    const pending = mutationQueue.then(async () => {
+      const cart = await request('/api/cart/items', { method, body: JSON.stringify(input) });
+      render(cart); lastRefreshAt = Date.now();
+      return cart;
+    });
+    mutationQueue = pending.catch(() => {});
+    return pending;
+  }
+  window.AlredaCart = Object.freeze({ add: input => mutate(input) });
 
   function snapshot(cart) {
     return JSON.stringify((cart.cart_items || []).map(item => {
@@ -98,8 +114,8 @@
       remove.type = 'button'; remove.className = 'bag-remove'; remove.textContent = dialog.dataset.removeText;
       remove.setAttribute('aria-label', `${dialog.dataset.removeText}: ${name.textContent}`);
       remove.addEventListener('click', async () => {
-        remove.disabled = true; revision++;
-        try { render(await request('/api/cart/items', { method: 'DELETE', body: JSON.stringify({ productId: product.id, ...(item.variant_id ? { variantId: item.variant_id } : {}) }) })); }
+        remove.disabled = true;
+        try { await mutate({ productId: product.id, ...(item.variant_id ? { variantId: item.variant_id } : {}) }, 'DELETE'); }
         catch { status.textContent = dialog.dataset.errorText; }
         finally { remove.disabled = false; }
       });
@@ -134,16 +150,14 @@
   document.querySelectorAll('.add-to-cart[data-product-id]').forEach(button => {
     button.addEventListener('click', async () => {
       button.disabled = true;
-      revision++;
       if (feedback) feedback.hidden = true;
       const holder = button.closest('.product-card, [data-product-details]');
       const note = holder?.querySelector('[data-cart-status]');
       try {
         const quantity = Number(holder?.querySelector('#product-quantity')?.value || 1);
         const variantId = holder?.dataset.purchaseVariant || button.dataset.variantId;
-        const cart = await request('/api/cart/items', { method: 'POST', body: JSON.stringify({ productId: button.dataset.productId, quantity, ...(variantId ? { variantId } : {}) }) });
+        await mutate({ productId: button.dataset.productId, quantity, ...(variantId ? { variantId } : {}) });
         if (note) note.textContent = feedback ? '' : dialog.dataset.addedText;
-        render(cart);
         added(holder);
         if (button.hasAttribute('data-buy-now')) window.location.assign(dialog.querySelector('[data-cart-checkout]').getAttribute('href'));
       } catch (error) {
@@ -153,7 +167,11 @@
   });
 
   bagButtons.forEach(bagButton => bagButton.addEventListener('click', refresh));
-  document.addEventListener('cart:refresh', refresh);
+  document.addEventListener('cart:refresh', event => {
+    if (Array.isArray(event.detail?.cart_items)) {
+      revision++; render(event.detail); lastRefreshAt = Date.now();
+    } else refresh();
+  });
   if (badges.length) refresh();
   window.addEventListener('pageshow', event => { if (event.persisted && badges.length) refresh(); });
   window.setInterval(refreshIfDue, refreshInterval);

@@ -23,12 +23,14 @@ function createCheckoutController({ service, repository, cartRepository, notific
         if (!['SHIPPING_UNAVAILABLE', 'SHIPPING_NOT_CONFIGURED'].includes(error.code)) throw error;
         return res.status(503).render('layouts/storefront', { title: res.locals.t('shipping'), contentView: '../storefront/shipping-pending', shippingError: error.code });
       }
-      let products = await repository.products();
-      const savedDetails = savedCheckoutDetails(await repository.latestCustomerOrder(res.locals.orderUserId), policy.shippingRates);
-      const cart = cartRepository ? await cartRepository.get({ userId: res.locals.orderUserId }) : null;
+      const [latestOrder, cart] = await Promise.all([
+        repository.latestCustomerOrder(res.locals.orderUserId),
+        cartRepository ? cartRepository.get({ userId: res.locals.orderUserId }) : null,
+      ]);
+      const savedDetails = savedCheckoutDetails(latestOrder, policy.shippingRates);
       const cartQuantities = Object.fromEntries((cart?.cart_items || []).map(item => [item.variant_id || item.product_id, item.quantity]));
-      if (cart?.cart_items?.length) products = cart.cart_items.map(item => ({ ...item.products, variant_id: item.variant_id,
-        stock_quantity: item.product_variants ? item.product_variants.stock_quantity : item.products.stock_quantity }));
+      const products = cart?.cart_items?.length ? cart.cart_items.map(item => ({ ...item.products, variant_id: item.variant_id,
+        stock_quantity: item.product_variants ? item.product_variants.stock_quantity : item.products.stock_quantity })) : await repository.products();
       res.render('layouts/storefront', { title: res.locals.t('checkoutTitle'), contentView: '../storefront/checkout', products, cartQuantities, savedDetails, policy, instapay, requestKey: randomUUID() });
     },
     async create(req, res) {

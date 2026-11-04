@@ -142,12 +142,15 @@
     showStockWarning(input);
   }
   async function refreshInventory() {
-    if (busy || inventoryRefreshing || document.hidden) return;
+    if (busy || canStartNew || form.hidden || inventoryRefreshing || document.hidden) return;
     inventoryRefreshing = true;
     try {
       const response = await fetch('/api/cart', { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(10000) });
       if (!response.ok) throw new Error('CART_UNAVAILABLE');
       const cart = await response.json();
+      // Ignore work started before submission or confirmation. It must not
+      // overwrite the receipt/status or the submitted totals with a late reply.
+      if (busy || canStartNew || form.hidden) return;
       const items = new Map((cart.cart_items || []).map(item => [item.variant_id || item.product_id, item]));
       let changed = false;
       for (const input of inventoryInputs) {
@@ -202,7 +205,7 @@
       }
       lastInventoryRefreshAt = Date.now();
     } catch {
-      status.textContent = msg('inventoryRefreshError');
+      if (!busy && !canStartNew && !form.hidden) status.textContent = msg('inventoryRefreshError');
     } finally { inventoryRefreshing = false; }
   }
   function refreshInventoryIfDue() {
