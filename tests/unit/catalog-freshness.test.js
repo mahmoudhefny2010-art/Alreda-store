@@ -34,3 +34,32 @@ it('does not let an older in-flight read replace or clear a newer invalidated re
   await repository.getDatabaseCatalog();
   expect(db.products.findMany).toHaveBeenCalledTimes(3);
 });
+
+it('loads only categories and homepage sections for the storefront homepage', async () => {
+  const db = client();
+  prisma.getPrismaClient = () => db;
+  const repository = require(catalogPath);
+  const source = repository.categories[0];
+  db.categories.findMany.mockResolvedValue([{
+    id: 'database-category-id', source_id: source.sourceId, slug: source.slug, name: 'Updated category',
+    name_ar: 'تصنيف محدث', description: null, description_ar: null, image_url: null,
+    home_section_id: 'section-id', homepage_order: 2,
+    home_section: { id: 'section-id', slug: 'primary', title_en: 'Main', title_ar: 'الرئيسية', display_order: 0 },
+  }]);
+  db.storefront_sections.findMany.mockResolvedValue([{
+    id: 'section-id', slug: 'primary', title_en: 'Main', title_ar: 'الرئيسية', display_order: 0, is_active: true,
+  }]);
+
+  const homepage = await repository.getDatabaseHomepage();
+
+  expect(homepage.categories).toHaveLength(1);
+  expect(homepage.categories[0]).toMatchObject({
+    id: 'database-category-id', slug: source.slug, name: 'Updated category',
+    image: source.image, group: 'primary', homeSectionId: 'section-id', homeOrder: 2,
+  });
+  expect(homepage.sections[0]).toMatchObject({ titleEn: 'Main', titleAr: 'الرئيسية' });
+  expect(db.categories.findMany).toHaveBeenCalledTimes(1);
+  expect(db.storefront_sections.findMany).toHaveBeenCalledTimes(1);
+  expect(db.products.findMany).not.toHaveBeenCalled();
+  expect(db.discount_rules.findMany).not.toHaveBeenCalled();
+});

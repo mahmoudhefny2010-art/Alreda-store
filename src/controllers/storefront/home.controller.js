@@ -1,6 +1,6 @@
 const { z } = require('zod');
 const { categories: localCategories } = require('../../config/storefront-preview');
-const { getDatabaseCatalog } = require('../../services/catalog.repository');
+const { getDatabaseHomepage } = require('../../services/catalog.repository');
 const { categoryName, translate } = require('../../config/storefront-i18n');
 const querySchema = z.object({ collection: z.enum(localCategories.map(category => category.slug)).optional() });
 exports.index = async (req, res, next) => {
@@ -11,7 +11,7 @@ exports.index = async (req, res, next) => {
   });
   if (query.data.collection) return res.redirect(302, `/collections/${query.data.collection}`);
   try {
-    const data = await getDatabaseCatalog();
+    const data = await getDatabaseHomepage();
     const aliases = [...data.byCategory.values()].filter(category => category.group === 'legacy');
     const sections = [...(data.sections || [])].filter(section => section.is_active !== false).sort((a, b) => a.display_order - b.display_order);
     const visible = [...data.categories].sort((a, b) => (a.homeOrder ?? 1000) - (b.homeOrder ?? 1000));

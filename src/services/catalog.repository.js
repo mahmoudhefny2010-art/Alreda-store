@@ -5,6 +5,7 @@ const { getPrismaClient } = require('../config/prisma');
 const { activeDiscounts, effectivePrice } = require('./discount.service');
 const { variantPrice, variantColor } = require('./purchase-selection.service');
 let pendingDatabaseRead;
+let pendingHomepageRead;
 const catalog = createMediaDelivery().applyCatalog(require('../config/catalog.json'));
 const products = new Map(catalog.products.map(product => [product.sourceId, product]));
 const bySlug = new Map(catalog.products.map(product => [product.slug, product]));
@@ -50,6 +51,43 @@ async function getDatabaseCatalog() {
     // including when another application instance committed the change.
     return await read;
   } finally { if (pendingDatabaseRead === read) pendingDatabaseRead = null; }
+}
+
+async function getDatabaseHomepage() {
+  if (!readDatabaseConfig().enabled) return { categories, byCategory, sections: fallbackSections };
+  if (pendingHomepageRead) return pendingHomepageRead;
+  const read = loadDatabaseHomepage();
+  pendingHomepageRead = read;
+  try {
+    return await read;
+  } finally { if (pendingHomepageRead === read) pendingHomepageRead = null; }
+}
+
+async function loadDatabaseHomepage() {
+  const client = getPrismaClient();
+  const [categoryRows, sectionRows] = await Promise.all([
+    client.categories.findMany({ where: { is_active: true }, select: {
+      id: true, source_id: true, slug: true, name: true, name_ar: true, image_url: true, home_section_id: true, homepage_order: true,
+      home_section: { select: { id: true, slug: true } },
+    } }),
+    client.storefront_sections.findMany({ where: { is_active: true }, select: {
+      id: true, slug: true, title_en: true, title_ar: true, display_order: true, is_active: true,
+    }, orderBy: { display_order: 'asc' } }),
+  ]);
+  const savedCategories = categoryRows.map(row => {
+    const original = categories.find(value => value.sourceId === row.source_id) || {};
+    return { ...original, id: row.id, sourceId: row.source_id || row.id, slug: row.slug, name: row.name,
+      titleEn: row.name, titleAr: row.name_ar, group: row.home_section?.slug || null, homeSectionId: row.home_section_id,
+      homeOrder: row.homepage_order, image: row.image_url || original.image || null,
+      productIds: original.productIds || [], href: `/collections/${encodeURIComponent(row.slug)}` };
+  });
+  const savedCategoriesBySlug = new Map(savedCategories.map(value => [value.slug, value]));
+  for (const alias of catalog.legacyAliases) {
+    const target = savedCategoriesBySlug.get(alias.targetSlug);
+    if (target) savedCategoriesBySlug.set(alias.slug, { ...target, slug: alias.slug, href: `/collections/${alias.slug}`, group: 'legacy' });
+  }
+  return { categories: savedCategories, byCategory: savedCategoriesBySlug,
+    sections: sectionRows.map(row => ({ ...row, titleEn: row.title_en, titleAr: row.title_ar })) };
 }
 
 async function loadDatabaseCatalog() {
@@ -142,5 +180,5 @@ async function loadDatabaseCatalog() {
     bySlug: savedProductsBySlug, categories: savedCategories, byCategory: savedCategoriesBySlug };
 }
 
-function invalidateDatabaseCatalog() { pendingDatabaseRead = null; }
-module.exports = { catalog, products, bySlug, categories, byCategory, getDatabaseCatalog, invalidateDatabaseCatalog };
+function invalidateDatabaseCatalog() { pendingDatabaseRead = null; pendingHomepageRead = null; }
+module.exports = { catalog, products, bySlug, categories, byCategory, getDatabaseCatalog, getDatabaseHomepage, invalidateDatabaseCatalog };
