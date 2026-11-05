@@ -130,6 +130,8 @@ html[dir="rtl"] .site-nav, html[dir="rtl"] .hero-shop-button, html[dir="rtl"] .l
 #search-results { padding-inline-start: 20px; font-size: 14px; }
 #search-results li { padding-block: 7px; }
 #search-results a { text-decoration: underline; text-underline-offset: 4px; }
+#search-results a { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+#search-results a small { flex: none; color: #777; font-size: 11px; text-decoration: none; }
 .product-grid { grid-auto-rows: auto; align-items: stretch; }
 .product-card { display: flex; flex-direction: column; min-width: 0; height: 100%; padding: 12px; border: 1px solid #ededed; border-radius: 8px; background: #fff; }
 .product-card-link { display: flex; flex-direction: column; flex: 1; min-width: 0; }

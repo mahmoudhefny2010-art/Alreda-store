@@ -14,11 +14,11 @@
     </div>
   </div>
 </header>
-<dialog id="search-dialog" class="shop-dialog" aria-labelledby="search-title" data-found-text="<%= t('collectionsFound') %>" data-empty-text="<%= t('noMatches') %>">
-  <form method="dialog" class="dialog-top"><h2 id="search-title"><%= t('searchCollections') %></h2><button class="icon-button" aria-label="<%= t('close') %>">×</button></form>
-  <label class="search-label" for="collection-search"><%= t('findCollection') %></label>
+<dialog id="search-dialog" class="shop-dialog" aria-labelledby="search-title" data-found-text="<%= locale === 'ar' ? 'نتائج مطابقة' : 'matching results' %>" data-empty-text="<%= locale === 'ar' ? 'لا توجد منتجات أو تصنيفات مطابقة. جرّب اسمًا آخر.' : 'No matching products or collections. Try another name.' %>" data-minimum-query="<%= locale === 'ar' ? 'اكتب حرفين على الأقل للبحث عن المنتجات' : 'Type at least 2 characters to search products.' %>" data-search-error="<%= locale === 'ar' ? 'تعذر البحث عن المنتجات الآن.' : 'Product search is unavailable right now.' %>" data-product-label="<%= t('products') %>" data-collection-label="<%= t('collectionsTitle') %>">
+  <form method="dialog" class="dialog-top"><h2 id="search-title"><%= locale === 'ar' ? 'ابحث عن المنتجات والتصنيفات' : 'Search products and collections' %></h2><button class="icon-button" aria-label="<%= t('close') %>">×</button></form>
+  <label class="search-label" for="collection-search"><%= locale === 'ar' ? 'ابحث باسم المنتج أو التصنيف' : 'Search by product or collection name' %></label>
   <input id="collection-search" type="search" placeholder="<%= t('searchPlaceholder') %>" autocomplete="off">
-  <p id="search-status" role="status"></p><ul id="search-results"><% if (typeof categories !== 'undefined') { categories.forEach(item => { %><li><a href="<%= item.href %>"><%= item.name %></a></li><% }); } %></ul>
+  <p id="search-status" role="status" aria-live="polite"></p><ul id="search-results"><% if (typeof categories !== 'undefined') { categories.forEach(item => { %><li data-search-kind="collection"><a href="<%= item.href %>"><span><%= item.name %></span><small><%= t('collectionsTitle') %></small></a></li><% }); } %></ul>
 </dialog>
 <dialog id="account-dialog" class="shop-dialog account-dialog" aria-labelledby="account-title"><form method="dialog" class="dialog-top"><h2 id="account-title"><%= t('account') %></h2><button class="icon-button" aria-label="<%= t('close') %>">×</button></form>
   <% if (typeof customer !== 'undefined' && customer) { %><div class="account-identity"><span class="account-avatar" aria-hidden="true"><%- include('icon', { name: 'account' }) %></span><div><p><%= t('signedInAs') %></p><strong><%= customer.name %></strong><% if (!customer.google_id) { %><a class="text-link account-link" href="/auth/google/link"><%= t('linkGoogle') %></a><% } %></div></div>

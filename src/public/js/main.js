@@ -147,21 +147,59 @@ const searchInput = document.querySelector('#collection-search');
 const searchResults = document.querySelector('#search-results');
 const searchStatus = document.querySelector('#search-status');
 if (searchInput && searchResults && searchStatus) {
-  const collectionLinks = [...searchResults.querySelectorAll('a')];
+  const dialog = document.querySelector('#search-dialog');
+  const collectionItems = [...searchResults.querySelectorAll('[data-search-kind="collection"]')].map(item => ({
+    href: item.querySelector('a')?.getAttribute('href') || '',
+    name: item.querySelector('a')?.querySelector('span')?.textContent || item.textContent,
+  }));
+  let requestId = 0;
+  let searchTimer;
+  let controller;
+  function renderResult(name, href, kind, label) {
+    const item = document.createElement('li');
+    item.dataset.searchKind = kind;
+    const link = document.createElement('a');
+    link.href = href;
+    const title = document.createElement('span');
+    title.textContent = name;
+    const type = document.createElement('small');
+    type.textContent = label;
+    link.append(title, type);
+    item.append(link);
+    searchResults.append(item);
+  }
   function updateSearch() {
     const locale = document.documentElement.lang || 'en';
     const query = searchInput.value.trim().toLocaleLowerCase(locale);
-    const matches = collectionLinks.filter(link => link.textContent.toLocaleLowerCase(locale).includes(query));
+    const matches = collectionItems.filter(item => item.name.toLocaleLowerCase(locale).includes(query));
+    const currentRequest = ++requestId;
+    window.clearTimeout(searchTimer);
+    controller?.abort();
     searchResults.replaceChildren();
-    for (const link of matches) {
-      const item = document.createElement('li');
-      const result = document.createElement('a');
-      result.href = link.getAttribute('href');
-      result.textContent = link.textContent;
-      item.append(result);
-      searchResults.append(item);
+    for (const item of matches) renderResult(item.name, item.href, 'collection', dialog.dataset.collectionLabel);
+    if (query.length < 2) {
+      searchStatus.textContent = query ? dialog.dataset.minimumQuery : `${matches.length} ${dialog.dataset.foundText}`;
+      return;
     }
-    searchStatus.textContent = matches.length ? `${matches.length} ${document.querySelector('#search-dialog').dataset.foundText}` : document.querySelector('#search-dialog').dataset.emptyText;
+    searchStatus.textContent = locale === 'ar' ? 'جارٍ البحث عن المنتجات…' : 'Searching products…';
+    searchTimer = window.setTimeout(async () => {
+      controller = new AbortController();
+      try {
+        const response = await fetch(`/api/products/search?q=${encodeURIComponent(query)}`, {
+          credentials: 'same-origin', headers: { Accept: 'application/json' }, signal: controller.signal,
+        });
+        if (!response.ok) throw new Error('PRODUCT_SEARCH_FAILED');
+        const payload = await response.json();
+        if (currentRequest !== requestId || query !== searchInput.value.trim().toLocaleLowerCase(locale)) return;
+        const products = Array.isArray(payload.products) ? payload.products : [];
+        for (const product of products) renderResult(product.name, product.href, 'product', dialog.dataset.productLabel);
+        const count = matches.length + products.length;
+        searchStatus.textContent = count ? `${count} ${dialog.dataset.foundText}` : dialog.dataset.emptyText;
+      } catch (error) {
+        if (error.name === 'AbortError' || currentRequest !== requestId) return;
+        searchStatus.textContent = matches.length ? `${matches.length} ${dialog.dataset.foundText}` : dialog.dataset.searchError;
+      }
+    }, 220);
   }
   searchInput.addEventListener('input', updateSearch);
   updateSearch();

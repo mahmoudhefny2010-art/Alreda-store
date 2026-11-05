@@ -66,6 +66,15 @@ it('preserves collection contents, legacy aliases, and price sorting', async () 
   }
 });
 
+it('searches database-backed product names in both languages and hides archived items', async () => {
+  await database.client.products.update({ where: { id: target.id }, data: { name: 'Black mirror holder', name_ar: 'حامل مرايا أسود' } });
+  const english = await repository.searchCatalogProducts('mirror hold', 'en');
+  expect(english).toContainEqual(expect.objectContaining({ name: 'Black mirror holder', href: '/products/target' }));
+  const arabic = await repository.searchCatalogProducts('مرايا', 'ar');
+  expect(arabic).toContainEqual(expect.objectContaining({ name: 'حامل مرايا أسود', href: '/products/target' }));
+  expect(english.some(product => product.href === '/products/archived')).toBe(false);
+});
+
 it('preserves product variants and related results when hydration is scoped', async () => {
   const { getProductFromData } = require('../../src/services/product.service');
   const whole = await repository.getDatabaseCatalog();

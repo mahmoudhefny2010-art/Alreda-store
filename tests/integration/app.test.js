@@ -38,6 +38,20 @@ describe('Phase 1 HTTP application', () => {
     expect(response.text).toContain('No products to display.');
     expect(response.text).toContain('Clear search');
   });
+  it('finds products by English or Arabic name in the global search', async () => {
+    const product = require('../../src/config/catalog.json').products[0];
+    const english = await request(app).get('/api/products/search').query({ q: product.titleEn.split(' ').slice(0, 2).join(' ') }).expect(200);
+    expect(english.body.products).toContainEqual(expect.objectContaining({ href: `/products/${product.slug}` }));
+    const arabic = await request(app).get('/api/products/search').query({ q: product.titleAr.slice(0, 3) }).set('Cookie', 'alreda_locale=ar').expect(200);
+    expect(arabic.body.products).toContainEqual(expect.objectContaining({ name: product.titleAr, href: `/products/${product.slug}` }));
+    await request(app).get('/api/products/search').query({ q: 'x' }).expect(400).expect({ products: [] });
+  });
+  it('shows product search in the global search dialog', async () => {
+    const response = await request(app).get('/').expect(200);
+    expect(response.text).toContain('Search products and collections');
+    expect(response.text).toContain('data-search-kind="collection"');
+    expect(response.text).toContain('Search by product or collection name');
+  });
   it.each(['sort=invalid', 'q=one&q=two', 'sort=featured&sort=price-asc', 'page=0', 'page=-1', 'page=1&page=2', 'page=1.5'])('rejects invalid collection filters %s', async query => {
     await request(app).get(`/collections/mirrors?${query}`).expect(400);
   });

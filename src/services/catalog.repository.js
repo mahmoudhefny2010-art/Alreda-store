@@ -78,6 +78,29 @@ async function getDatabaseHomepage() {
   } finally { if (pendingHomepageRead === read) pendingHomepageRead = null; }
 }
 
+async function searchCatalogProducts(query, locale = 'en') {
+  const normalized = String(query || '').trim();
+  if (normalized.length < 2) return [];
+  if (!readDatabaseConfig().enabled) {
+    const needle = normalized.toLocaleLowerCase(locale === 'ar' ? 'ar' : 'en');
+    return catalog.products.filter(product => [product.titleEn, product.titleAr, product.name].filter(Boolean)
+      .some(name => name.toLocaleLowerCase(locale === 'ar' ? 'ar' : 'en').includes(needle)))
+      .slice(0, 10).map(product => ({ name: locale === 'ar' ? product.titleAr || product.name : product.titleEn || product.name,
+        href: `/products/${encodeURIComponent(product.slug)}` }));
+  }
+  const matches = await getPrismaClient().products.findMany({
+    where: { OR: [
+      { name: { contains: normalized, mode: 'insensitive' } },
+      { name_ar: { contains: normalized, mode: 'insensitive' } },
+    ] },
+    select: { slug: true, name: true, name_ar: true, catalog_details: { select: { presentation: true } } },
+    orderBy: [{ is_available: 'desc' }, { name: 'asc' }],
+    take: 40,
+  });
+  return matches.filter(product => !product.catalog_details?.presentation?.archivedAt).slice(0, 10)
+    .map(product => ({ name: locale === 'ar' ? product.name_ar || product.name : product.name, href: `/products/${encodeURIComponent(product.slug)}` }));
+}
+
 async function loadDatabaseHomepage() {
   const client = getPrismaClient();
   const [categoryRows, sectionRows] = await Promise.all([
@@ -238,4 +261,4 @@ function invalidateDatabaseCatalog() {
   cachedHomepage = null;
   cachedHomepageUntil = 0;
 }
-module.exports = { catalog, products, bySlug, categories, byCategory, getDatabaseCatalog, getDatabaseHomepage, invalidateDatabaseCatalog };
+module.exports = { catalog, products, bySlug, categories, byCategory, getDatabaseCatalog, getDatabaseHomepage, searchCatalogProducts, invalidateDatabaseCatalog };
