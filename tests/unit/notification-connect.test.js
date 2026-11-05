@@ -47,7 +47,7 @@ describe('push connection lifecycle', () => {
   });
   it.each(['127.0.0.1', 'localhost', 'store.example'])('sets the localhost exception only for loopback (%s)', async hostname => {
     const c = client(hostname); await c.init();
-    expect(c.sdk.init).toHaveBeenCalledWith(expect.objectContaining({ allowLocalhostAsSecureOrigin: hostname !== 'store.example', serviceWorkerParam: { scope: '/onesignal/' } }));
+    expect(c.sdk.init).toHaveBeenCalledWith(expect.objectContaining({ allowLocalhostAsSecureOrigin: hostname !== 'store.example', serviceWorkerPath: 'onesignal/OneSignalSDKWorker.js', serviceWorkerParam: { scope: '/onesignal/' } }));
   });
   it('updates the account after delayed subscription creation and only then offers a test', async () => {
     const c = client(); await c.init();

@@ -155,7 +155,7 @@
     try {
       if (!initialized) {
         // Reuse an in-flight initialization on retry: the SDK must only initialize once.
-        if (!initialization) initialization = Promise.resolve(sdk.init({ appId, allowLocalhostAsSecureOrigin: ['localhost', '127.0.0.1', '[::1]'].includes(window.location?.hostname), serviceWorkerPath: '/onesignal/OneSignalSDKWorker.js', serviceWorkerParam: { scope: '/onesignal/' },
+        if (!initialization) initialization = Promise.resolve(sdk.init({ appId, allowLocalhostAsSecureOrigin: ['localhost', '127.0.0.1', '[::1]'].includes(window.location?.hostname), serviceWorkerPath: 'onesignal/OneSignalSDKWorker.js', serviceWorkerParam: { scope: '/onesignal/' },
           notifyButton: { enable: false }, promptOptions: { slidedown: { prompts: [{ type: 'push', autoPrompt: false }] } } })).catch(error => { initialization = null; throw error; });
         await boundedConnection(initialization);
         initialized = true;
