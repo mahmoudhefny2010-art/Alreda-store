@@ -6,6 +6,7 @@ const { createOrderService } = require('../../src/services/order.service');
 const { createApp } = require('../../src/app');
 const { OrderError } = require('../../src/validators/order.validator');
 const { createNotificationRepository } = require('../../src/repositories/notification.repository');
+const { createNotificationWorker } = require('../../src/services/notification-worker.service');
 const { createCustomerAuthRepository } = require('../../src/repositories/customer-auth.repository');
 const { createCartRepository } = require('../../src/repositories/cart.repository');
 const policy = { enabled: true, origin: 'http://localhost', shippingRates: { Cairo: 25 } };
@@ -42,6 +43,27 @@ describe('durable PostgreSQL order workflow', () => {
     await request(app(null)).get('/api/admin/orders/updates').query({ since }).expect(401);
     await request(app(customer.id)).get('/api/admin/orders/updates').query({ since }).expect(403);
     await request(app(admin.id)).get('/api/admin/orders/updates').query({ since: 'invalid' }).expect(400);
+  });
+
+  it('sends every admin-set order status to the account that placed the order', async () => {
+    const item = await product();
+    const created = await service().submit(customer.id, randomUUID(), body(item));
+    const subscriptionId = randomUUID();
+    await database.client.push_subscribers.create({ data: { user_id: customer.id, external_id: customer.id, onesignal_subscription_id: subscriptionId } });
+    const provider = { enabled: true, send: vi.fn(async () => ({ skipped: false, messageId: randomUUID() })) };
+    const worker = createNotificationWorker({ clientProvider: () => database.client, provider, logger });
+
+    for (const status of ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED']) {
+      await repository.updateStatus(created.order.id, status, admin.id);
+      await expect(worker.processOrderStatus(created.order.id)).resolves.toEqual({ processed: 1, skipped: false });
+    }
+
+    expect(provider.send.mock.calls.map(([notification]) => notification.payload.status))
+      .toEqual(['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED']);
+    expect(provider.send.mock.calls.every(([notification]) => notification.subscriptionIds.includes(subscriptionId))).toBe(true);
+    const jobs = await database.client.notification_outbox.findMany({ where: { order_id: created.order.id, event_type: 'ORDER_STATUS' } });
+    expect(jobs).toHaveLength(4);
+    expect(jobs.every(job => job.user_id === customer.id && job.status === 'SENT')).toBe(true);
   });
 
   it('sends unauthenticated customer pages to Google sign-in with a safe return path', async () => {
