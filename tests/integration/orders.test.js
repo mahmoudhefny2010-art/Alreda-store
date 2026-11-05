@@ -30,6 +30,20 @@ beforeAll(async () => {
 afterAll(async () => { await database?.stop(); }, 30000);
 
 describe('durable PostgreSQL order workflow', () => {
+  it('notifies authorized admins about orders created after the page cursor', async () => {
+    const since = new Date(Date.now() - 1000).toISOString();
+    const item = await product();
+    const created = await service().submit(customer.id, randomUUID(), body(item));
+    const savedOrder = await repository.getAdminOrder(created.order.id);
+    const response = await request(app(admin.id)).get('/api/admin/orders/updates').query({ since }).expect(200)
+      .expect('Cache-Control', 'private, no-store');
+    expect(response.body.orders).toContainEqual(expect.objectContaining({ id: created.order.id, order_number: savedOrder.order_number }));
+    expect(response.body.orders[0]).not.toHaveProperty('customer_phone');
+    await request(app(null)).get('/api/admin/orders/updates').query({ since }).expect(401);
+    await request(app(customer.id)).get('/api/admin/orders/updates').query({ since }).expect(403);
+    await request(app(admin.id)).get('/api/admin/orders/updates').query({ since: 'invalid' }).expect(400);
+  });
+
   it('sends unauthenticated customer pages to Google sign-in with a safe return path', async () => {
     const unauthenticated = app(null, {}, { GOOGLE_CLIENT_ID: 'synthetic-client-id', GOOGLE_CLIENT_SECRET: 'synthetic-client-secret' });
     await request(unauthenticated).get('/checkout').expect(303).expect('Location', '/auth/google?returnTo=%2Fcheckout');

@@ -110,6 +110,14 @@ function createOrderRepository(clientProvider = getPrismaClient) {
         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}) });
       return Promise.all(rows.map(withProof));
     },
+    async newAdminOrdersSince(since) {
+      return db().orders.findMany({
+        where: { created_at: { gt: since } },
+        select: { id: true, order_number: true, created_at: true },
+        orderBy: [{ created_at: 'asc' }, { id: 'asc' }],
+        take: 20,
+      });
+    },
     async create({ userId, key, hash, input, shippingFee }) {
       const savedId = await db().$transaction(async tx => {
         await tx.$executeRaw`SET LOCAL synchronous_commit = on`;

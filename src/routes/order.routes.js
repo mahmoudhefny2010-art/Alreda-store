@@ -98,6 +98,12 @@ function createOrderRoutes({ authenticate, repository = createOrderRepository(),
     next();
   }, checkout.create);
   router.get('/api/orders/requests/:key', customerGuard, checkout.status);
+  router.get('/api/admin/orders/updates', adminGuard, async (req, res) => {
+    const since = z.iso.datetime().safeParse(req.query.since);
+    if (!since.success) throw new OrderError('INVALID_ORDER_UPDATE_CURSOR', 400);
+    const orders = await repository.newAdminOrdersSince(new Date(since.data));
+    res.set('Cache-Control', 'private, no-store').json({ orders });
+  });
   router.get('/admin/orders', adminGuard, admin.index);
   router.get('/admin', dashboardGuard, dashboard.createDashboardController(repository));
   const origin = (req, res, next) => sameOrigin(req) ? next() : next(new OrderError('REQUEST_ORIGIN_REJECTED', 403));
